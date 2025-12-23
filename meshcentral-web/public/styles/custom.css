@@ -1,27 +1,15 @@
 /* **************************************************************** */
 /* Remote Desktop Cursor Customization */
-/* Display custom cursor (20x20px) when mouse is over remote desktop */
+/* HIDE CURSOR completely when over remote desktop - JavaScript will provide custom cursor */
 #DeskParent,
+#DeskParent *,
 #Desk,
-#deskarea0 {
-    cursor: url('/images/icons/remote-cursor.png') 10px 10px, none !important;
-}
-
-/* When over remote desk, apply custom cursor to all nested elements and hide default cursor */
-body.remote-desk-active #DeskParent,
-body.remote-desk-active #Desk,
-body.remote-desk-active #deskarea0,
-body.remote-desk-active #DeskParent *,
-body.remote-desk-active #Desk *,
-body.remote-desk-active #deskarea0 * {
-    cursor: url('/images/icons/remote-cursor.png') 10px 10px, none !important;
-}
-
-/* Ensure normal cursor outside remote desk area */
-body:not(.remote-desk-active) #DeskParent,
-body:not(.remote-desk-active) #Desk,
-body:not(.remote-desk-active) #deskarea0 {
-    cursor: auto !important;
+#Desk *,
+#deskarea0,
+#deskarea0 *,
+body.remote-desk-active,
+body.remote-desk-active * {
+    cursor: none !important;
 }
 
 /* **************************************************************** */

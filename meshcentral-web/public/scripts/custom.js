@@ -446,12 +446,13 @@
   'use strict';
 
   const CURSOR_IMAGE_URL = '/images/icons/remote-cursor.png';
-  const CURSOR_HOTSPOT = '10px 10px'; // center of 20px cursor (assuming 20x20px image)
+  const CURSOR_SIZE = 20; // 20x20px cursor
 
   let deskParent = null;
   let desk = null;
   let deskarea0 = null;
   let isOverDesk = false;
+  let customCursorElement = null;
   let cursorStyleElement = null;
 
   const injectCursorStyles = () => {
@@ -460,25 +461,66 @@
     cursorStyleElement = document.createElement('style');
     cursorStyleElement.id = 'remote-cursor-style';
     cursorStyleElement.textContent = `
-      /* Hide all default cursors when over remote desk */
+      /* AGGRESSIVELY HIDE CURSOR WHEN OVER REMOTE DESK */
       body.remote-desk-active,
-      body.remote-desk-active * {
-        cursor: url('${CURSOR_IMAGE_URL}') ${CURSOR_HOTSPOT}, none !important;
-      }
-      
-      /* Specific elements - force custom cursor */
+      body.remote-desk-active *,
       #DeskParent,
+      #DeskParent *,
       #Desk,
-      #deskarea0 {
-        cursor: url('${CURSOR_IMAGE_URL}') ${CURSOR_HOTSPOT}, none !important;
+      #Desk *,
+      #deskarea0,
+      #deskarea0 * {
+        cursor: none !important;
       }
-      
-      /* Canvas element if present */
-      canvas {
-        cursor: url('${CURSOR_IMAGE_URL}') ${CURSOR_HOTSPOT}, none !important;
+
+      /* Custom cursor element styling */
+      #custom-remote-cursor {
+        position: fixed;
+        width: ${CURSOR_SIZE}px;
+        height: ${CURSOR_SIZE}px;
+        background: url('${CURSOR_IMAGE_URL}') center/contain no-repeat;
+        pointer-events: none;
+        z-index: 999999;
+        opacity: 1;
+        transition: opacity 0.15s ease;
+      }
+
+      #custom-remote-cursor.hidden {
+        opacity: 0;
+        display: none;
       }
     `;
     document.head.appendChild(cursorStyleElement);
+  };
+
+  const createCustomCursor = () => {
+    if (customCursorElement) return;
+
+    customCursorElement = document.createElement('div');
+    customCursorElement.id = 'custom-remote-cursor';
+    customCursorElement.className = 'hidden';
+    document.body.appendChild(customCursorElement);
+  };
+
+  const updateCustomCursorPosition = (e) => {
+    if (!customCursorElement || !isOverDesk) return;
+
+    // Position cursor at mouse position (offset by half size to center it)
+    const x = e.clientX - CURSOR_SIZE / 2;
+    const y = e.clientY - CURSOR_SIZE / 2;
+
+    customCursorElement.style.left = x + 'px';
+    customCursorElement.style.top = y + 'px';
+  };
+
+  const showCustomCursor = () => {
+    if (!customCursorElement) createCustomCursor();
+    customCursorElement.classList.remove('hidden');
+  };
+
+  const hideCustomCursor = () => {
+    if (!customCursorElement) return;
+    customCursorElement.classList.add('hidden');
   };
 
   const setupCursorTracking = () => {
@@ -505,22 +547,19 @@
       const body = document.body;
       if (isOverDesk) {
         body.classList.add('remote-desk-active');
-        // Force cursor style update
-        if (deskParent) deskParent.style.cursor = `url('${CURSOR_IMAGE_URL}') ${CURSOR_HOTSPOT}, none`;
-        if (desk) desk.style.cursor = `url('${CURSOR_IMAGE_URL}') ${CURSOR_HOTSPOT}, none`;
+        showCustomCursor();
       } else {
         body.classList.remove('remote-desk-active');
-        // Restore default cursor
-        if (deskParent) deskParent.style.cursor = '';
-        if (desk) desk.style.cursor = '';
+        hideCustomCursor();
       }
     };
 
     // Setup mouse tracking on DeskParent
     if (deskParent) {
-      deskParent.addEventListener('mouseenter', () => {
+      deskParent.addEventListener('mouseenter', (e) => {
         isOverDesk = true;
         updateCursorState();
+        updateCustomCursorPosition(e);
       }, true);
 
       deskParent.addEventListener('mouseleave', () => {
@@ -529,14 +568,14 @@
       }, true);
 
       deskParent.addEventListener('mousemove', (e) => {
-        if (!isOverDesk) return;
+        updateCustomCursorPosition(e);
 
         // Check if still within bounds (to handle black borders)
         const bounds = deskParent.getBoundingClientRect();
         const x = e.clientX;
         const y = e.clientY;
 
-        // Check if within bounds with small tolerance
+        // Check if within bounds
         const isInside = x >= bounds.left && x <= bounds.right &&
           y >= bounds.top && y <= bounds.bottom;
 
@@ -549,43 +588,27 @@
 
     // Also track on Desk canvas element directly
     if (desk && !deskParent) {
-      desk.addEventListener('mouseenter', () => {
+      desk.addEventListener('mouseenter', (e) => {
         isOverDesk = true;
         updateCursorState();
+        updateCustomCursorPosition(e);
       }, true);
 
       desk.addEventListener('mouseleave', () => {
         isOverDesk = false;
         updateCursorState();
       }, true);
-    }
 
-    // Track on deskarea0 to catch fullscreen boundary leaves
-    if (deskarea0) {
-      deskarea0.addEventListener('mousemove', (e) => {
-        if (!isOverDesk) return;
-
-        const bounds = deskParent?.getBoundingClientRect() ||
-          desk?.getBoundingClientRect() ||
-          deskarea0.getBoundingClientRect();
-
-        if (!bounds) return;
-
-        const x = e.clientX;
-        const y = e.clientY;
-        const isInside = x >= bounds.left && x <= bounds.right &&
-          y >= bounds.top && y <= bounds.bottom;
-
-        if (!isInside && isOverDesk) {
-          isOverDesk = false;
-          updateCursorState();
-        }
+      desk.addEventListener('mousemove', (e) => {
+        updateCustomCursorPosition(e);
       }, true);
     }
 
-    // Also monitor global mouse move for final fallback
+    // Global mouse move for all cases
     document.addEventListener('mousemove', (e) => {
       if (!isOverDesk) return;
+
+      updateCustomCursorPosition(e);
 
       const bounds = deskParent?.getBoundingClientRect() ||
         desk?.getBoundingClientRect();
@@ -608,10 +631,12 @@
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       injectCursorStyles();
+      createCustomCursor();
       setupCursorTracking();
     });
   } else {
     injectCursorStyles();
+    createCustomCursor();
     setupCursorTracking();
   }
 
