@@ -2,6 +2,8 @@
 (() => {
   'use strict';
 
+  try { console.log('[remote-cursor] script loaded'); } catch (e) { }
+
   /* -------------------------- CONFIG -------------------------- */
   const CONFIG = {
     FULLSCREEN_STYLE_ID: 'mc-true-fs-style',
@@ -516,6 +518,7 @@
     customCursorElement.classList.remove('hidden');
     // Hide browser cursor with inline style
     document.body.style.cursor = 'none';
+    try { console.log('[remote-cursor] showCustomCursor'); } catch (e) { }
     // Start smooth animation loop
     if (!animationFrameId) {
       animationFrameId = requestAnimationFrame(animateCursor);
@@ -527,6 +530,7 @@
     customCursorElement.classList.add('hidden');
     // Restore browser cursor
     document.body.style.cursor = '';
+    try { console.log('[remote-cursor] hideCustomCursor'); } catch (e) { }
     // Stop animation loop
     if (animationFrameId) {
       cancelAnimationFrame(animationFrameId);
@@ -564,8 +568,14 @@
 
     const target = canvas || desk || deskParent;
 
+    try { console.log('[remote-cursor] setupCursorTracking: found', { deskParent: !!deskParent, desk: !!desk, canvas: !!canvas, target: target ? (canvas ? 'canvas' : (desk ? 'desk' : 'deskParent')) : 'none' }); } catch (e) { }
+    if (desk) {
+      try { const b = desk.getBoundingClientRect(); console.log('[remote-cursor] desk bounds', { left: b.left, top: b.top, right: b.right, bottom: b.bottom, width: b.width, height: b.height }); } catch (e) { }
+    }
+
     if (!target) {
       // Retry in a moment if elements not found
+      try { console.log('[remote-cursor] setupCursorTracking: target not found, retrying'); } catch (e) { }
       setTimeout(setupCursorTracking, 500);
       return;
     }
@@ -578,11 +588,13 @@
       // If transitioning INTO desk display area
       if (onDeskDisplay && !isOverDeskDisplay) {
         isOverDeskDisplay = true;
+        try { console.log('[remote-cursor] mousemove -> entered desk'); } catch (err) { }
         showCustomCursor();
       }
       // If transitioning OUT OF desk display area
       else if (!onDeskDisplay && isOverDeskDisplay) {
         isOverDeskDisplay = false;
+        try { console.log('[remote-cursor] mousemove -> left desk'); } catch (err) { }
         hideCustomCursor();
       }
     }, true);
@@ -638,6 +650,7 @@
         if (checkCanvas && !canvas) {
           canvas = checkCanvas;
           // Canvas found, we can clear retry
+          try { console.log('[remote-cursor] retryInterval: canvas found'); } catch (e) { }
           clearInterval(retryInterval);
         }
       }
