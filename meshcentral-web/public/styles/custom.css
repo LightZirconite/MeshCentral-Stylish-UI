@@ -1,16 +1,50 @@
 /* **************************************************************** */
+/* Remote Desktop Cursor Customization */
+/* Display custom cursor (20x20px) when mouse is over remote desktop */
+#DeskParent,
+#Desk,
+#deskarea0 {
+    cursor: url('/images/icons/remote-cursor.png') 10px 10px, auto !important;
+}
+
+/* When over remote desk, apply custom cursor to all nested elements */
+body.remote-desk-active #DeskParent *,
+body.remote-desk-active #Desk *,
+body.remote-desk-active #deskarea0 * {
+    cursor: url('/images/icons/remote-cursor.png') 10px 10px, auto !important;
+}
+
+/* Ensure normal cursor outside remote desk area */
+body:not(.remote-desk-active) {
+    cursor: auto !important;
+}
+
+/* **************************************************************** */
 /* Background */
-body, #container, #column_l, .deviceBarCheckbox, .deviceBarIcon, .baricon, .card,
-.night #container, .night #column_l, .night .deviceBarCheckbox, .night .deviceBarIcon, .night .baricon, .night .card{
+body,
+#container,
+#column_l,
+.deviceBarCheckbox,
+.deviceBarIcon,
+.baricon,
+.card,
+.night #container,
+.night #column_l,
+.night .deviceBarCheckbox,
+.night .deviceBarIcon,
+.night .baricon,
+.night .card {
     background-color: unset !important;
 }
 
-#container, #p30html2 > table>*>*>* {
-	background-color: #f3f3f3 !important;
+#container,
+#p30html2>table>*>*>* {
+    background-color: #f3f3f3 !important;
 }
 
-.night #container, .night #p30html2 > table>*>*>* {
-	background-color: #1c1e1e !important;
+.night #container,
+.night #p30html2>table>*>*>* {
+    background-color: #1c1e1e !important;
 }
 
 /*
@@ -19,55 +53,59 @@ body, #container, #column_l, .deviceBarCheckbox, .deviceBarIcon, .baricon, .card
     margin-left: 6px !important;
 }	
 */
-a, div[id^="dialog"] a {
+a,
+div[id^="dialog"] a {
     text-decoration: none !important;
 }
 
-.DevSt a, td.DevSt a, #xdevices div a, div[id^="p10html"]:not([id="p10html"]) a {
+.DevSt a,
+td.DevSt a,
+#xdevices div a,
+div[id^="p10html"]:not([id="p10html"]) a {
     text-decoration: none !important;
-	padding: 11px !important;
-	font-size: smaller !important;
+    padding: 11px !important;
+    font-size: smaller !important;
 }
 
 /* **************************************************************** */
 /* Columns and List View */
 /* Columns view */
 span[id^="DevxHeader"] {
-	font-size: small !important;
-	font-weight: 300 !important;
+    font-size: small !important;
+    font-weight: 300 !important;
 }
 
 span[class^="devHeaderx"] {
-	font-size: small !important;
-	font-weight: 300 !important;
-	color: #999;
+    font-size: small !important;
+    font-weight: 300 !important;
+    color: #999;
 }
 
 /* Agent, Powered, AMT text */
-.e2t > div > span {
+.e2t>div>span {
     font-size: x-small !important;
     color: #999 !important;
 }
 
-.e2t > div {
+.e2t>div {
     font-size: x-small !important;
     padding-top: 0px !important;
-	padding-left: 6% !important;
+    padding-left: 6% !important;
 }
 
 div.e1t {
-	margin-bottom: 0px !important;
+    margin-bottom: 0px !important;
     width: unset !important;
-	padding-right: 6% !important;
-	padding-left: 6% !important;
-	font-size: small !important;
-	padding-bottom: 0% !important;
+    padding-right: 6% !important;
+    padding-left: 6% !important;
+    font-size: small !important;
+    padding-bottom: 0% !important;
 }
 
 .e2t {
     background-color: transparent !important;
     width: unset !important;
-	max-width: 170px !important;
+    max-width: 170px !important;
 }
 
 /* box - little left box */
@@ -84,17 +122,17 @@ div.e1t {
 
 /* box hover */
 .e2s {
-	background-color: #c9c9c91c !important;
+    background-color: #c9c9c91c !important;
 }
 
 .night .e2s {
-	background-color: #33333336 !important;
+    background-color: #33333336 !important;
 }
 
 
-#xdevices > [id^="DevxCol"] > [id^="xv1node"] {
-	width: 250px !important;
-	margin-right: 2% !important;
+#xdevices>[id^="DevxCol"]>[id^="xv1node"] {
+    width: 250px !important;
+    margin-right: 2% !important;
 }
 
 
@@ -106,13 +144,13 @@ div.e1t {
 
 #p3 .p3eventsTable tbody tr td:first-child,
 #p31 .p3eventsTable tbody tr td:first-child {
-  background-color: unset !important;
-  cursor: pointer;
+    background-color: unset !important;
+    cursor: pointer;
 }
 
-#p31 > table > tbody > tr > td.h1,
-#p31 > table > tbody > tr > td.h2 {
-	display: none;
+#p31>table>tbody>tr>td.h1,
+#p31>table>tbody>tr>td.h2 {
+    display: none;
 }
 
 .bar18 {
@@ -148,22 +186,23 @@ h1 {
 }
 
 .DevSt {
-	border-bottom-width: 4px !important;
-	border-bottom-color: #DDDDDD00 !important;
-	padding-right: 20px;
-	color: var(--bs-body-color);
+    border-bottom-width: 4px !important;
+    border-bottom-color: #DDDDDD00 !important;
+    padding-right: 20px;
+    color: var(--bs-body-color);
 }
 
 span[cmenu="meshContextMenu"] {
     margin-left: 15px !important;
     margin-right: 15px !important;
     font-size: medium !important;
-	color: var(--bs-body-color); !important;
+    color: var(--bs-body-color);
+    !important;
 }
 
-#xdevices > [id^="DevxCol"] {
-  margin-bottom: 30px !important;
-  margin-left: 50px !important;
+#xdevices>[id^="DevxCol"] {
+    margin-bottom: 30px !important;
+    margin-left: 50px !important;
 }
 
 #xdevices div[style*="border-top-style:solid"][style*="border-top-width:1px"] {
@@ -177,8 +216,8 @@ td.DevSt #MxMESH {
 }
 
 table tr td div[id^="DevxCol"] {
-  margin-bottom: 30px !important;
-  margin-left: 50px !important;
+    margin-bottom: 30px !important;
+    margin-left: 50px !important;
 }
 
 /* List view devices with alternate colors - panreyes suggestion */
@@ -200,12 +239,12 @@ table tr td div[id^="DevxCol"] {
 
 #xdevices table:has(span[id^="MxMESH"]) tr:hover {
     background-color: color-mix(in lab, currentColor 7%, transparent) !important;
-	transition: background-color 0.2s ease;
+    transition: background-color 0.2s ease;
 }
 
 .night #xdevices table:has(span[id^="MxMESH"]) tr:hover {
     background-color: color-mix(in lab, currentColor 12%, transparent) !important;
-	transition: background-color 0.2s ease;
+    transition: background-color 0.2s ease;
 }
 
 /* List View - adjustments for Daan Selen */
@@ -233,7 +272,7 @@ tr[name="xxdevice2"] {
     padding: 0 2px !important;
     font-size: medium !important;
     cursor: pointer !important;
- /*   position: relative !important; */
+    /*   position: relative !important; */
     pointer-events: auto !important;
     background: transparent !important;
     z-index: 1 !important;
@@ -294,20 +333,20 @@ tr[name="xxdevice2"] {
 
 #xdevices table:has(span[id^="MxMESH"]) tr:hover {
     background-color: color-mix(in lab, currentColor 7%, transparent) !important;
-	transition: background-color 0.2s ease;
+    transition: background-color 0.2s ease;
     z-index: 2 !important;
 }
 
 .night #xdevices table:has(span[id^="MxMESH"]) tr:hover {
     background-color: color-mix(in lab, currentColor 12%, transparent) !important;
-	transition: background-color 0.2s ease;
+    transition: background-color 0.2s ease;
 }
 
 #devs .deviceBarCheckbox,
 #devs .deviceBarIcon,
 #devs .style10,
-#devs .style10 > .flex-grow-1,
-#devs .style10 > div[style*="float:right"],
+#devs .style10>.flex-grow-1,
+#devs .style10>div[style*="float:right"],
 #devs .bar18,
 #devs .g1,
 #devs .g2 {
@@ -331,6 +370,7 @@ tr[name="xxdevice2"] {
     min-height: 2rem !important;
     flex-shrink: 0 !important;
 }
+
 .deviceBarCheckbox input {
     margin: 0 !important;
     width: 1rem !important;
@@ -347,13 +387,18 @@ tr[name="xxdevice2"] {
     flex-shrink: 0 !important;
     cursor: pointer !important;
 }
-.deviceBarIcon > div {
+
+.deviceBarIcon>div {
     margin: 0 !important;
     width: 1rem !important;
     height: 1rem !important;
 }
 
-#devs .g1, #devs .g2 { display: none !important; }
+#devs .g1,
+#devs .g2 {
+    display: none !important;
+}
+
 #devs .bar18 {
     height: 100% !important;
     min-height: 2rem !important;
@@ -374,7 +419,7 @@ tr[name="xxdevice2"] {
 #xdevices table th,
 #xdevices table td,
 #xdevices .style10 {
-/*    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif !important; */
+    /*    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif !important; */
     font-size: smaller !important;
     line-height: 1.4 !important;
     font-weight: normal !important;
@@ -408,59 +453,62 @@ tr[name="xxdevice2"] {
 
 /* Mobile Toolbar - For My Devices Page (Select All, Group Action, Filter & OS Name CheckBox) */
 @media (max-width: 900px) {
-  #devListToolbarSpan { 
-    flex-wrap: wrap; 
-    gap: 8px;
-  }
+    #devListToolbarSpan {
+        flex-wrap: wrap;
+        gap: 8px;
+    }
 
-  #devListToolbar,
-  #kvmListToolbar {
-    flex-wrap: wrap;
-    gap: 8px;
-    width: 100%;
-    min-width: 0;
-  }
+    #devListToolbar,
+    #kvmListToolbar {
+        flex-wrap: wrap;
+        gap: 8px;
+        width: 100%;
+        min-width: 0;
+    }
 
-  #devListToolbarSpan > .d-flex.ms-auto {
-    flex-basis: 100%;
-    flex-wrap: wrap;
-    gap: 8px;
-    justify-content: flex-start;
-  }
+    #devListToolbarSpan>.d-flex.ms-auto {
+        flex-basis: 100%;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: flex-start;
+    }
 
-  #SearchInput,
-  #KvmSearchInput {
-    flex: 1 1 220px;
-    min-width: 0;
-    max-width: 100%;
-  }
+    #SearchInput,
+    #KvmSearchInput {
+        flex: 1 1 220px;
+        min-width: 0;
+        max-width: 100%;
+    }
 
-  #DevFilterSelect,
-  #viewselect,
-  #sizeselect,
-  #sortselect {
-    flex: 0 1 200px;
-    max-width: 100%;
-  }
+    #DevFilterSelect,
+    #viewselect,
+    #sizeselect,
+    #sortselect {
+        flex: 0 1 200px;
+        max-width: 100%;
+    }
 
-  #devListToolbar .form-check,
-  #kvmListToolbar .form-check {
-    flex: 0 0 auto;
-  }
+    #devListToolbar .form-check,
+    #kvmListToolbar .form-check {
+        flex: 0 0 auto;
+    }
 
-  #devListToolbar .btn,
-  #kvmListToolbar .btn {
-    flex: 0 0 auto;
-  }
+    #devListToolbar .btn,
+    #kvmListToolbar .btn {
+        flex: 0 0 auto;
+    }
 }
 
 /* **************************************************************** */
 /* Device - General Page customization */
-#p10 span[tabindex="0"], #p10 span[onclick="showEditNodeValueDialog(3)"], #p10 span[onclick="showEditNodeValueDialog(2)"] {
+#p10 span[tabindex="0"],
+#p10 span[onclick="showEditNodeValueDialog(3)"],
+#p10 span[onclick="showEditNodeValueDialog(2)"] {
     color: #69B !important;
 }
 
-#p10 #p10deviceName svg.fa-pencil, #p10 #p10info svg.fa-pencil {
+#p10 #p10deviceName svg.fa-pencil,
+#p10 #p10info svg.fa-pencil {
     display: none !important;
 }
 
@@ -476,76 +524,78 @@ tr[name="xxdevice2"] {
 /* **************************************************************** */
 /* Drop down context menu */
 .contextMenu {
-	border-radius: 10px !important;
-	border: unset !important;
-	box-shadow: 0 0 12px #0000004d !important;
-	padding: 4px;
-	/* color: #CCC !important; */
-	    background-color: rgba(242, 242, 242, 0.75) !important;
+    border-radius: 10px !important;
+    border: unset !important;
+    box-shadow: 0 0 12px #0000004d !important;
+    padding: 4px;
+    /* color: #CCC !important; */
+    background-color: rgba(242, 242, 242, 0.75) !important;
     backdrop-filter: blur(12px) saturate(120%) brightness(1.1) !important;
     -webkit-backdrop-filter: blur(12px) saturate(120%) brightness(1.1) !important;
-	overflow: hidden;
+    overflow: hidden;
 }
 
 .night .contextMenu {
-	box-shadow: 0 0 12px #050505ba !important;
-	/* color: #CCC !important; */
-	background-color: rgba(41, 44, 44, 0.75) !important;
+    box-shadow: 0 0 12px #050505ba !important;
+    /* color: #CCC !important; */
+    background-color: rgba(41, 44, 44, 0.75) !important;
 }
 
 hr#cxmgroupsplit {
-	margin: 2px 0px !important;
-	/* margin-bottom: 6px !important; */
+    margin: 2px 0px !important;
+    /* margin-bottom: 6px !important; */
 }
 
 .cmtext:hover {
     background-color: color-mix(in lab, currentcolor 5%, transparent) !important;
-	transition: background-color 0.2s ease;
+    transition: background-color 0.2s ease;
 }
 
 .cmtext {
     width: 100% !important;
-	font-size: smaller !important;
-	color: unset !important;
-	padding: 6px 12px;
-	overflow: unset !important;
-	border-radius: 7px !important;
-}
-
-#cxinfo > b {
-	font-weight: normal !important;
-}
-
-.dropdown-menu.show {
-	border-radius: 10px !important;
-	border: unset !important;
-	background-color: #f2f2f2 !important;
-	box-shadow: 0 0 12px #0000004d !important;
-	font-size: smaller !important;
-	padding: 4px;
-    background-color: rgba(242, 242, 242, 0.75) !important;
-    backdrop-filter: blur(12px) saturate(120%) brightness(1.1) !important;
-    -webkit-backdrop-filter: blur(12px saturate(120%) brightness(1.1)) !important;
-	overflow: hidden;
-}
-
-.night .dropdown-menu.show {
-	background-color: #292c2c !important;
-	box-shadow: 0 0 12px #050505ba !important;
-	background-color: rgba(41, 44, 44, 0.75) !important;
-}
-
-.dropdown-menu.show > li > a {
-	color: var(--bs-body-color) !important;
-}
-
-.dropdown-item, .dropdown-item {
+    font-size: smaller !important;
+    color: unset !important;
+    padding: 6px 12px;
+    overflow: unset !important;
     border-radius: 7px !important;
 }
 
-.dropdown-item:focus, .dropdown-item:hover {
-	background-color: color-mix(in lab, currentcolor 5%, transparent) !important;
-	transition: background-color 0.2s ease;
+#cxinfo>b {
+    font-weight: normal !important;
+}
+
+.dropdown-menu.show {
+    border-radius: 10px !important;
+    border: unset !important;
+    background-color: #f2f2f2 !important;
+    box-shadow: 0 0 12px #0000004d !important;
+    font-size: smaller !important;
+    padding: 4px;
+    background-color: rgba(242, 242, 242, 0.75) !important;
+    backdrop-filter: blur(12px) saturate(120%) brightness(1.1) !important;
+    -webkit-backdrop-filter: blur(12px saturate(120%) brightness(1.1)) !important;
+    overflow: hidden;
+}
+
+.night .dropdown-menu.show {
+    background-color: #292c2c !important;
+    box-shadow: 0 0 12px #050505ba !important;
+    background-color: rgba(41, 44, 44, 0.75) !important;
+}
+
+.dropdown-menu.show>li>a {
+    color: var(--bs-body-color) !important;
+}
+
+.dropdown-item,
+.dropdown-item {
+    border-radius: 7px !important;
+}
+
+.dropdown-item:focus,
+.dropdown-item:hover {
+    background-color: color-mix(in lab, currentcolor 5%, transparent) !important;
+    transition: background-color 0.2s ease;
     border-radius: 7px !important;
 }
 
@@ -576,34 +626,34 @@ hr#cxmgroupsplit {
 
 /* Individual icons */
 #LeftMenuMyDevices svg {
-	background-image: url(/images/icons/LeftMenuMyDevices.png)
+    background-image: url(/images/icons/LeftMenuMyDevices.png)
 }
 
 #LeftMenuMyAccount svg {
-	background-image: url(/images/icons/LeftMenuMyAccount.png)
+    background-image: url(/images/icons/LeftMenuMyAccount.png)
 }
 
 #LeftMenuMyEvents svg {
-	background-image: url(/images/icons/LeftMenuMyEvents.png)
+    background-image: url(/images/icons/LeftMenuMyEvents.png)
 }
 
 #LeftMenuMyFiles svg {
-	background-image: url(/images/icons/LeftMenuMyFiles.png)
+    background-image: url(/images/icons/LeftMenuMyFiles.png)
 }
 
 #LeftMenuMyUsers svg {
-	background-image: url(/images/icons/LeftMenuMyUsers.png)
+    background-image: url(/images/icons/LeftMenuMyUsers.png)
 }
 
 #LeftMenuMyServer svg {
-	background-image: url(/images/icons/LeftMenuMyServer.png)
+    background-image: url(/images/icons/LeftMenuMyServer.png)
 }
 
 /* **************************************************************** */
 /* Left Bar shrink */
 #page_leftbar {
-	width: 70px !important;
-	overflow-x: hidden !important;
+    width: 70px !important;
+    overflow-x: hidden !important;
 }
 
 .fullscreen #container {
@@ -618,185 +668,193 @@ hr#cxmgroupsplit {
     width: calc(100vw - 100px);
 }
 
-#page_leftbar > div:first-of-type {
-	display: none !important;
+#page_leftbar>div:first-of-type {
+    display: none !important;
 }
 
 /* left Bar Custom Colors */
 #page_leftbar {
-	/* background: linear-gradient(to bottom, #35445a 10%, #3b4c64 100%) !important; /* Melo */
+    /* background: linear-gradient(to bottom, #35445a 10%, #3b4c64 100%) !important; /* Melo */
     background: linear-gradient(to bottom, var(--bs-primary-bg-subtle) 66%, var(--bs-primary) 180%) !important;
 }
 
 #page_leftbar .nav-link {
-	border-radius: 5px 0px 0px 5px !important;
+    border-radius: 5px 0px 0px 5px !important;
 }
 
 
 #page_leftbar .nav-link:not(.lbbuttonsel2):hover {
     background-color: color-mix(in lab, currentcolor 50%, transparent) !important;
-	transition: background-color 0.2s ease;
+    transition: background-color 0.2s ease;
 }
 
 .night #page_leftbar .nav-link:not(.lbbuttonsel2):hover {
     background-color: color-mix(in lab, currentcolor 10%, transparent) !important;
-	transition: background-color 0.2s ease;
+    transition: background-color 0.2s ease;
 }
 
 /* **************************************************************** */
 /* Little Stuff */
 #container {
-	background-color: #f3f3f3 !important;
+    background-color: #f3f3f3 !important;
 }
 
 .night #container {
-	background-color: #1c1e1e !important;
+    background-color: #1c1e1e !important;
 }
 
 #p2info {
-	overflow-x: hidden !important;
+    overflow-x: hidden !important;
 }
 
 #p1title {
-	margin-top: -13px !important;
+    margin-top: -13px !important;
 }
 
 #p30info {
-	overflow-x: hidden !important;
+    overflow-x: hidden !important;
 }
 
-#p30info > .row {
-	margin-right: calc(1.5 * var(--bs-gutter-x)) !important;
+#p30info>.row {
+    margin-right: calc(1.5 * var(--bs-gutter-x)) !important;
 }
 
 #p30html2 {
-	margin-right: 15px !important;
+    margin-right: 15px !important;
 }
 
 #p2meshes {
-	margin-right: 15px !important;
+    margin-right: 15px !important;
 }
 
-#p3users table, #p16events .table.table-hover.p3eventsTable {
-	--bs-table-bg: unset !important;
+#p3users table,
+#p16events .table.table-hover.p3eventsTable {
+    --bs-table-bg: unset !important;
 }
 
-#p20info .table.table-hover.table-striped, #p20info2 .table.table-hover.table-striped {
-	--bs-table-bg: unset !important;
-	--bs-table-striped-bg: unset !important;
-	/* --bs-table-hover-bg: unset !important; */
+#p20info .table.table-hover.table-striped,
+#p20info2 .table.table-hover.table-striped {
+    --bs-table-bg: unset !important;
+    --bs-table-striped-bg: unset !important;
+    /* --bs-table-hover-bg: unset !important; */
 }
 
-#p20info .table.table-hover.table-striped tr, #p20info2 .table.table-hover.table-striped tr {
+#p20info .table.table-hover.table-striped tr,
+#p20info2 .table.table-hover.table-striped tr {
     background-color: unset !important;
 }
 
 #DeskTools {
-	font-size: smaller !important;
-	width: 314px !important;
+    font-size: smaller !important;
+    width: 314px !important;
 }
 
 #deskToolsAreaTop {
-	background-color: #f2f2f2 !important;
+    background-color: #f2f2f2 !important;
 }
 
 .night #deskToolsAreaTop {
-	background-color: #919191ba !important;
+    background-color: #919191ba !important;
 }
 
 .pwState.pwsBlack {
-	background: linear-gradient(to bottom right, #7ce25b 15%, #217957 85%);
+    background: linear-gradient(to bottom right, #7ce25b 15%, #217957 85%);
 }
-#p10html4 > table > tbody > tr {
+
+#p10html4>table>tbody>tr {
     background-color: var(--bs-table-bg) !important;
 }
 
-#dialog2 > div {
-	overflow-wrap: break-word;
+#dialog2>div {
+    overflow-wrap: break-word;
 }
 
 #dialog2 .col.col-md-2.col-lg-2 {
     overflow-wrap: normal !important;
 }
 
-#dialog2 > .dialogText {
-	font-size: smaller;
+#dialog2>.dialogText {
+    font-size: smaller;
 }
 
 .deskToolsBar:hover {
     background-color: color-mix(in lab, currentcolor 5%, transparent) !important;
-	transition: background-color 0.2s ease;
+    transition: background-color 0.2s ease;
 }
 
 .night .deskToolsBar:hover {
-	background-color: #414141 !important;
+    background-color: #414141 !important;
 }
 
 /* Device Details */
 #p17info2 .table.table-hover {
     --bs-table-bg: unset !important;
-	--bs-table-hover-bg: unset !important;
+    --bs-table-hover-bg: unset !important;
 }
 
-#p17info2 > table > tbody > tr > td * {
-		border: none !important;
-		cursor: default;
+#p17info2>table>tbody>tr>td * {
+    border: none !important;
+    cursor: default;
 }
 
 @media (min-width: 769px) {
-	#p17info2 > table > tbody > tr > td > div:nth-child(2) {
-		margin-left: 40px !important;
-		margin-right: 40px !important;
-	}
-	#p17graph > table > tbody > tr > td:nth-child(2) > div:nth-child(2) {
-		width:calc(100% - 56px) !important;
-	}
+    #p17info2>table>tbody>tr>td>div:nth-child(2) {
+        margin-left: 40px !important;
+        margin-right: 40px !important;
+    }
+
+    #p17graph>table>tbody>tr>td:nth-child(2)>div:nth-child(2) {
+        width: calc(100% - 56px) !important;
+    }
 
     .col-md-8 {
         flex: 0 0 auto;
         width: 360px !important;
-		padding-left: 32px;
+        padding-left: 32px;
     }
 
     .col-md-4 {
         flex: 0 0 auto;
-		width: auto;
+        width: auto;
         /* width: 65% !important; */
     }
 }
 
 .col-md-4 {
-	text-align: left !important;
+    text-align: left !important;
 }
 
-#p17info2 > table > tbody > tr > td > div{
+#p17info2>table>tbody>tr>td>div {
     margin-bottom: 2.3rem !important;
 }
 
-#p17graph table  > tbody > tr > td > img,
-#p17info2 > table > tbody > tr > td > img, #p17info2 > table > tbody > tr > img {
-	transform: translateY(-20px);
+#p17graph table>tbody>tr>td>img,
+#p17info2>table>tbody>tr>td>img,
+#p17info2>table>tbody>tr>img {
+    transform: translateY(-20px);
 }
 
-#p17graph table, #p17info2 > table {
-	background-color: #e5e5e582;
-	border-radius: 40px;
-	max-width: 1000px !important;
-	margin-left: auto;
-	margin-right: auto;	
-	margin-top: 50px;
+#p17graph table,
+#p17info2>table {
+    background-color: #e5e5e582;
+    border-radius: 40px;
+    max-width: 1000px !important;
+    margin-left: auto;
+    margin-right: auto;
+    margin-top: 50px;
 }
 
-.night #p17graph table, .night #p17info2 > table {
-	background-color: #8181810f;
+.night #p17graph table,
+.night #p17info2>table {
+    background-color: #8181810f;
 }
 
-#p17info2  table > tbody > tr > td > div > div:hover {
+#p17info2 table>tbody>tr>td>div>div:hover {
     background-color: color-mix(in lab, currentColor 7%, transparent) !important;
     transition: background-color 0.2s ease;
 }
 
-.night #p17info2  table > tbody > tr > td > div > div:hover {
+.night #p17info2 table>tbody>tr>td>div>div:hover {
     background-color: color-mix(in lab, currentColor 12%, transparent) !important;
     transition: background-color 0.2s ease;
 }
@@ -817,7 +875,7 @@ hr#cxmgroupsplit {
     margin-right: auto !important;
 }
 
-#p17info2 > table > tbody > tr > td > div.DevSt {
+#p17info2>table>tbody>tr>td>div.DevSt {
     line-height: 4rem;
     margin-bottom: unset !important;
 }
@@ -828,25 +886,25 @@ hr#cxmgroupsplit {
     margin-left: unset !important;
 }
 
-#p17info2 > table > tbody > tr > td:nth-child(2) > div > table > tbody > tr > td > div {
+#p17info2>table>tbody>tr>td:nth-child(2)>div>table>tbody>tr>td>div {
     padding: unset !important;
-	--bs-gutter-x: 1.5rem;
-	--bs-gutter-y: 0;
+    --bs-gutter-x: 1.5rem;
+    --bs-gutter-y: 0;
 }
 
-#p17info2 > table > tbody > tr > td * {
+#p17info2>table>tbody>tr>td * {
     color: var(--bs-body-color);
 }
 
-.night #p17info2 > table > tbody > tr > td * {
+.night #p17info2>table>tbody>tr>td * {
     color: #BBB;
 }
 
-#p17info2 > table {
-	margin-bottom: 10px;
+#p17info2>table {
+    margin-bottom: 10px;
 }
 
-#p17info2 > table > tbody > tr > td:nth-child(1) {
+#p17info2>table>tbody>tr>td:nth-child(1) {
     user-select: none;
     -webkit-user-select: none;
     -moz-user-select: none;
@@ -857,57 +915,58 @@ hr#cxmgroupsplit {
 /* Scrollbars */
 /* Target the scrollbar */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+    width: 10px;
+    height: 10px;
 }
 
 /* Scrollbar track (background) */
 ::-webkit-scrollbar-track {
-  background: transparent !important;
-  border-radius: 10px;
+    background: transparent !important;
+    border-radius: 10px;
 }
 
 /* Scrollbar thumb (the draggable part) */
 ::-webkit-scrollbar-thumb {
-	border-radius: 10px;
-	box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.1); */
-    transition: all 0.3s ease;
-	background-color: color-mix(in lab, currentcolor 15%, transparent) !important;
+    border-radius: 10px;
+    box-shadow: inset 0 0 5px rgba(0, 0, 0, 0.1);
+    */ transition: all 0.3s ease;
+    background-color: color-mix(in lab, currentcolor 15%, transparent) !important;
 }
 
 /* Hover effect on thumb */
 ::-webkit-scrollbar-thumb:hover {
-	box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
-	background-color: color-mix(in lab, currentcolor 30%, transparent) !important;
+    box-shadow: 0 0 8px rgba(0, 0, 0, 0.2);
+    background-color: color-mix(in lab, currentcolor 30%, transparent) !important;
 }
 
 /* Active/clicking state */
 ::-webkit-scrollbar-thumb:active {
-	background-color: color-mix(in lab, currentcolor 30%, transparent) !important;
+    background-color: color-mix(in lab, currentcolor 30%, transparent) !important;
 }
 
 /* Modals */
 #dialogHeader {
     background-color: unset !important;
-	cursor: default !important;
-	color: #CCCCCC !important;
+    cursor: default !important;
+    color: #CCCCCC !important;
 }
 
 .modal-header {
-	padding: 9px 9px 9px 16px !important;
-	border-bottom: unset !important;
+    padding: 9px 9px 9px 16px !important;
+    border-bottom: unset !important;
 }
 
 .modal-title {
-	color: #212529 !important;
+    color: #212529 !important;
 }
 
 .night .modal-title {
-	color: #BBBBBB !important;
+    color: #BBBBBB !important;
 }
-	
-.h5, h5 {
-	font-size: 1.05rem !important;
+
+.h5,
+h5 {
+    font-size: 1.05rem !important;
 }
 
 .modal-header .btn-close {
@@ -917,7 +976,7 @@ hr#cxmgroupsplit {
     /*background-image: none !important;*/
     /*filter: none !important;*/
     opacity: 1 !important;
-	cursor: default !important;
+    cursor: default !important;
 }
 
 .modal-header .btn-close {
@@ -925,9 +984,9 @@ hr#cxmgroupsplit {
     background-size: 0.7em auto !important;
     background-repeat: no-repeat !important;
     background-position: center !important;
-	width: 1.7em !important;
+    width: 1.7em !important;
     height: 1.7em !important;
-	margin: calc(-0.6 * var(--bs-modal-header-padding-y)) calc(-0.6 * var(--bs-modal-header-padding-x)) calc(-0.6 * var(--bs-modal-header-padding-y)) auto !important;
+    margin: calc(-0.6 * var(--bs-modal-header-padding-y)) calc(-0.6 * var(--bs-modal-header-padding-x)) calc(-0.6 * var(--bs-modal-header-padding-y)) auto !important;
 }
 
 .modal-header .btn-close:hover {
@@ -937,17 +996,17 @@ hr#cxmgroupsplit {
 }
 
 .btn-close {
-	border-radius: unset !important;
+    border-radius: unset !important;
 }
 
 .modal-content {
     background-color: rgba(242, 242, 242, 0.6) !important;
     backdrop-filter: blur(16px) saturate(120%) brightness(1.1) !important;
     -webkit-backdrop-filter: blur(16px) saturate(120%) brightness(1.1) !important;
-	overflow: hidden;
-	border-radius: 14px !important;
-	border: 1px solid rgb(0 0 0 / 11%);
-	box-shadow: inset 0 -1px 13px 1px rgb(255 255 255 / 11%) !important;
+    overflow: hidden;
+    border-radius: 14px !important;
+    border: 1px solid rgb(0 0 0 / 11%);
+    box-shadow: inset 0 -1px 13px 1px rgb(255 255 255 / 11%) !important;
 }
 
 .modal-content * {
@@ -965,36 +1024,42 @@ hr#cxmgroupsplit {
 }
 
 .night .modal-content {
-	background-color: rgba(41, 44, 44, 0.6) !important;
-	border: 1px solid rgb(255 255 255 / 28%);
-	/* box-shadow: 0 0 12px #0000004d !important; */
-/*	box-shadow: inset 0 0 18px #fefefe36 !important; */
-	box-shadow: inset 0 -1px 13px 1px rgb(255 255 255 / 7%) !important;
+    background-color: rgba(41, 44, 44, 0.6) !important;
+    border: 1px solid rgb(255 255 255 / 28%);
+    /* box-shadow: 0 0 12px #0000004d !important; */
+    /*	box-shadow: inset 0 0 18px #fefefe36 !important; */
+    box-shadow: inset 0 -1px 13px 1px rgb(255 255 255 / 7%) !important;
 }
 
 .modal-backdrop {
-	background: unset !important;
-	background-color: rgba(242, 242, 242, 0.5) !important;
-	/* background-color: rgba(41, 44, 44, 0.15) !important; */
-	/* background-color: rgba(41, 44, 44, 0.3) !important; */
+    background: unset !important;
+    background-color: rgba(242, 242, 242, 0.5) !important;
+    /* background-color: rgba(41, 44, 44, 0.15) !important; */
+    /* background-color: rgba(41, 44, 44, 0.3) !important; */
     backdrop-filter: blur(3px) !important;
-	opacity: 1 !important;
-	/* transition: opacity 1.3s linear !important; */
-	overflow: hidden !important;
+    opacity: 1 !important;
+    /* transition: opacity 1.3s linear !important; */
+    overflow: hidden !important;
 }
 
 .night .modal-backdrop {
-	background-color: rgba(41, 44, 44, 0.3) !important;
+    background-color: rgba(41, 44, 44, 0.3) !important;
 }
 
 .modal {
     --bs-modal-padding: 2rem;
-	overflow: hidden !important;
+    overflow: hidden !important;
 }
 
-.form-control, .form-control-sm, .form-select, .form-select-sm, .btn-group-sm>.btn, .btn-sm, #d2ServerErrorsLogPre {
+.form-control,
+.form-control-sm,
+.form-select,
+.form-select-sm,
+.btn-group-sm>.btn,
+.btn-sm,
+#d2ServerErrorsLogPre {
     border: 1px solid #7d7d7d3d !important;
-	border-radius: 5px !important;
+    border-radius: 5px !important;
 }
 
 #dialog2 input[type="radio"] {
@@ -1002,153 +1067,193 @@ hr#cxmgroupsplit {
 }
 
 .modal-footer {
-	border-top: unset;
-	padding: 15px 20px 20px 20px !important;
+    border-top: unset;
+    padding: 15px 20px 20px 20px !important;
     gap: 10px;
 }
 
-.night #agins_linux_area, .night #agins_linux_area_un, .night #d2notifyMsg, .night #d2devNotes, .night #d2devEvent, .night #d2runcmd, .night #d2devMessage, .night #d2smsText, .night #d2emailSubject, .night #d2emailText, .night #broadcastMessage, .night #d2ServerErrorsLogPre, .night textarea#d2notifyMsg, .night input#dp2notifyTitle {
-	background-color: #262626cc !important;
+.night #agins_linux_area,
+.night #agins_linux_area_un,
+.night #d2notifyMsg,
+.night #d2devNotes,
+.night #d2devEvent,
+.night #d2runcmd,
+.night #d2devMessage,
+.night #d2smsText,
+.night #d2emailSubject,
+.night #d2emailText,
+.night #broadcastMessage,
+.night #d2ServerErrorsLogPre,
+.night textarea#d2notifyMsg,
+.night input#dp2notifyTitle {
+    background-color: #262626cc !important;
 }
 
-#agins_linux_area, #agins_linux_area_un, #d2notifyMsg, #d2devNotes, #d2devEvent, #d2runcmd, #d2devMessage, #d2smsText, #d2emailSubject, #d2emailText, #broadcastMessage, #d2ServerErrorsLogPre, textarea#d2notifyMsg, input#dp2notifyTitle {
+#agins_linux_area,
+#agins_linux_area_un,
+#d2notifyMsg,
+#d2devNotes,
+#d2devEvent,
+#d2runcmd,
+#d2devMessage,
+#d2smsText,
+#d2emailSubject,
+#d2emailText,
+#broadcastMessage,
+#d2ServerErrorsLogPre,
+textarea#d2notifyMsg,
+input#dp2notifyTitle {
     background-color: #f4f4f45e !important;
     border: 1px solid #7d7d7d3d !important;
-	border-radius: 5px !important;
+    border-radius: 5px !important;
 }
 
 #d4editorarea {
     border: 1px solid #7d7d7d3d !important;
-	border-radius: 5px !important;
-	background-color: #f4f4f45e;
+    border-radius: 5px !important;
+    background-color: #f4f4f45e;
 }
+
 .night #d4editorarea {
     background-color: #262626cc !important;
 }
 
-#dialog2 > textarea#d2devNotes.form-control {
-	resize: vertical !important;
+#dialog2>textarea#d2devNotes.form-control {
+    resize: vertical !important;
 }
 
 /* forms */
-.form-floating > .form-select {
-  background: rgba(242, 242, 242, 0.01) !important;
-  border: 1px solid #7d7d7d3d !important;
+.form-floating>.form-select {
+    background: rgba(242, 242, 242, 0.01) !important;
+    border: 1px solid #7d7d7d3d !important;
 }
 
-.night .form-floating > .form-select {
-  background: rgba(41, 44, 44, 0.01) !important;
+.night .form-floating>.form-select {
+    background: rgba(41, 44, 44, 0.01) !important;
 }
 
-.form-floating > .form-select {
-  -webkit-appearance: none;
-  appearance: none;
+.form-floating>.form-select {
+    -webkit-appearance: none;
+    appearance: none;
 }
 
 .form-select::-webkit-calendar-picker-indicator {
-  /*filter: invert(1); /* opcional: inverte seta */
+    /*filter: invert(1); /* opcional: inverte seta */
 }
 
 .form-select option,
 .form-select optgroup {
-  background: rgba(242, 242, 242, 0.6) !important;
-  /* color: #fff !important; */
-  backdrop-filter: blur(8px);
+    background: rgba(242, 242, 242, 0.6) !important;
+    /* color: #fff !important; */
+    backdrop-filter: blur(8px);
 }
 
 .night .form-select option,
 .night .form-select optgroup {
-  background: rgba(41, 44, 44, 0.95) !important;
-  /* color: #fff !important; */
-  backdrop-filter: blur(8px);
+    background: rgba(41, 44, 44, 0.95) !important;
+    /* color: #fff !important; */
+    backdrop-filter: blur(8px);
 }
 
 .form-floating>.form-select~label::after {
-	background-color: unset !important;
+    background-color: unset !important;
 }
 
-#d7otherset, #d7otherset2, #d7rdpflags {
-	border-radius: 5px !important;
-	border: 1px solid #7d7d7d3d !important;
-	max-height: 350px;
+#d7otherset,
+#d7otherset2,
+#d7rdpflags {
+    border-radius: 5px !important;
+    border: 1px solid #7d7d7d3d !important;
+    max-height: 350px;
 }
 
 #theme-switcher {
-	padding: 15px;
-	margin-top: var(--bs-modal-margin);
-	background: rgba(242, 242, 242, 0.01) !important;
-	border: 1px solid #7d7d7d3d !important;
-	border-radius: 5px !important;
+    padding: 15px;
+    margin-top: var(--bs-modal-margin);
+    background: rgba(242, 242, 242, 0.01) !important;
+    border: 1px solid #7d7d7d3d !important;
+    border-radius: 5px !important;
 }
 
 .night #theme-switcher {
-	background: rgba(41, 44, 44, 0.01) !important;
+    background: rgba(41, 44, 44, 0.01) !important;
 }
 
-.form-floating>.form-control-plaintext~label, .form-floating>.form-control:focus~label, .form-floating>.form-control:not(:placeholder-shown)~label, .form-floating>.form-select~label {
+.form-floating>.form-control-plaintext~label,
+.form-floating>.form-control:focus~label,
+.form-floating>.form-control:not(:placeholder-shown)~label,
+.form-floating>.form-select~label {
     font-size: small;
 }
 
-.form-floating>.form-control-plaintext~label::after, .form-floating>.form-control:focus~label::after, .form-floating>.form-control:not(:placeholder-shown)~label::after, .form-floating>.form-select~label::after {
-	background-color: unset;
+.form-floating>.form-control-plaintext~label::after,
+.form-floating>.form-control:focus~label::after,
+.form-floating>.form-control:not(:placeholder-shown)~label::after,
+.form-floating>.form-select~label::after {
+    background-color: unset;
 }
 
 .form-floating>.form-control-plaintext,
 .form-floating>.form-control-plaintext,
 .form-floating>.form-control,
 .form-floating>.form-control {
-	background: rgba(242, 242, 242, 0.01) !important;
+    background: rgba(242, 242, 242, 0.01) !important;
 }
 
 .night .form-floating>.form-control-plaintext,
 .night .form-floating>.form-control-plaintext,
 .night .form-floating>.form-control,
 .night .form-floating>.form-control {
-	background: rgba(41, 44, 44, 0.01) !important;
+    background: rgba(41, 44, 44, 0.01) !important;
     color: var(--bs-body-color);
 }
 
 :root {
-  --sub-menu-color: #7d7d7d3d;
+    --sub-menu-color: #7d7d7d3d;
 }
 
 .form-select {
-	background: rgba(242, 242, 242, 0.01) !important;
-	/* padding: 15px; */
-	/* margin-bottom: var(--bs-modal-margin) !important; */
-	background: rgba(242, 242, 242, 0.01) !important;
-	border: 1px solid #7d7d7d3d !important;
-	border-radius: 5px !important;
+    background: rgba(242, 242, 242, 0.01) !important;
+    /* padding: 15px; */
+    /* margin-bottom: var(--bs-modal-margin) !important; */
+    background: rgba(242, 242, 242, 0.01) !important;
+    border: 1px solid #7d7d7d3d !important;
+    border-radius: 5px !important;
 }
 
 .night .form-select {
-	background: rgba(41, 44, 44, 0.01) !important;
+    background: rgba(41, 44, 44, 0.01) !important;
 }
 
-#d2cmdtype, #d2cmduser, #d2cmdsource {
+#d2cmdtype,
+#d2cmduser,
+#d2cmdsource {
     padding-top: 1rem;
     padding-bottom: 1rem;
-	padding: 15px;
-	margin-bottom: var(--bs-modal-margin) !important;
-	/*background: rgba(242, 242, 242, 0.01) !important;*/
+    padding: 15px;
+    margin-bottom: var(--bs-modal-margin) !important;
+    /*background: rgba(242, 242, 242, 0.01) !important;*/
     border: 1px solid #7d7d7d3d !important;
     border-radius: 5px !important;
     appearance: none;
 }
 
-#d3serverfiles, #d2serverfiles {
-	background-color: #f4f4f45e;
+#d3serverfiles,
+#d2serverfiles {
+    background-color: #f4f4f45e;
     height: 350px;
-	border: 1px solid #7d7d7d3d !important;
-	border-radius: 5px !important;
-	padding-left: 10px;
+    border: 1px solid #7d7d7d3d !important;
+    border-radius: 5px !important;
+    padding-left: 10px;
 }
 
-.night #d3serverfiles, .night #d2serverfiles {
-	background-color: #262626cc;
+.night #d3serverfiles,
+.night #d2serverfiles {
+    background-color: #262626cc;
 }
 
-#d3serveraction, #d2serveraction {
+#d3serveraction,
+#d2serveraction {
     background-color: unset;
 }
 
@@ -1162,13 +1267,17 @@ hr#cxmgroupsplit {
     background-color: #262626cc;
 }
 
-input#dp2notifyTitle, select#d2notifyTimeout, select#d2deviceop, span.select2-selection.select2-selection--multiple, select#d2devTimeout {
+input#dp2notifyTitle,
+select#d2notifyTimeout,
+select#d2deviceop,
+span.select2-selection.select2-selection--multiple,
+select#d2devTimeout {
     padding: 15px;
     margin-bottom: var(--bs-modal-margin) !important;
     border: 1px solid #7d7d7d3d !important;
     border-radius: 5px !important;
     appearance: none;
-	}
+}
 
 
 input#d2devurl {
@@ -1177,29 +1286,35 @@ input#d2devurl {
     border: 1px solid #7d7d7d3d !important;
     border-radius: 5px !important;
     appearance: none;
-	}
+}
 
-#SearchInput.search, #KvmSearchInput.search {
+#SearchInput.search,
+#KvmSearchInput.search {
     background-color: #f3f3f3;
 }
 
-canvas#p2canvas, #p2AccountImage, #p2AccountImage2, #MainUserImageEx {
-	box-shadow: unset !important;
+canvas#p2canvas,
+#p2AccountImage,
+#p2AccountImage2,
+#MainUserImageEx {
+    box-shadow: unset !important;
     background: unset !important;
     border: unset !important;
-	}
-	
-.card:hover, #p2AccountImage:hover, #p2canvas:hover {
+}
+
+.card:hover,
+#p2AccountImage:hover,
+#p2canvas:hover {
     background: unset !important;
-	transition: transform 0.3s ease 0s;
-	transform: scale(1.02);
+    transition: transform 0.3s ease 0s;
+    transform: scale(1.02);
 }
 
 #p2canvas {
     display: block !important;
     margin-left: auto !important;
     margin-right: auto !important;
-	margin-top: 50px !important;
+    margin-top: 50px !important;
 }
 
 input#p2FolderUp {
@@ -1208,11 +1323,11 @@ input#p2FolderUp {
 }
 
 .select2-container--bootstrap-5 .select2-selection {
-	background: rgba(242, 242, 242, 0.01) !important;
+    background: rgba(242, 242, 242, 0.01) !important;
 }
 
 .night .select2-container--bootstrap-5 .select2-selection {
-	background: rgba(41, 44, 44, 0.01) !important;
+    background: rgba(41, 44, 44, 0.01) !important;
 }
 
 .suggestionBox {
@@ -1221,84 +1336,86 @@ input#p2FolderUp {
 
 .suggestionBoxItem {
     background-color: #707070;
-	color: white;
+    color: white;
     font-size: smaller;
     padding: 10px;
 }
 
-.suggestionBoxItem:hover
-Specificity: (0,2,0)
- {
+.suggestionBoxItem:hover Specificity: (0, 2, 0) {
     background-color: var(--bs-primary);
 }
 
 .form-select {
-	color: var(--bs-body-color);
+    color: var(--bs-body-color);
 }
 
 /* form-checks-input radio buttons */
 .form-check-input {
-  border: 1px solid color-mix(in lab, currentcolor 30%, transparent) !important;
-  border-radius: 50% !important;
-  pointer-events: auto !important;
-  cursor: pointer !important;
-  opacity: 0.9;
-  /* background-size: unset !important; */
-	background-size: contain !important;
+    border: 1px solid color-mix(in lab, currentcolor 30%, transparent) !important;
+    border-radius: 50% !important;
+    pointer-events: auto !important;
+    cursor: pointer !important;
+    opacity: 0.9;
+    /* background-size: unset !important; */
+    background-size: contain !important;
 }
 
 .form-check-input:hover {
-	transform: scale(1.15);
-	transition: transform 0.3s ease 0s, background-color 0.6s ease 0s;
-	background-color: color-mix(in lab, var(--bs-primary) 20%, transparent) !important;
-	opacity: 1.0;
+    transform: scale(1.15);
+    transition: transform 0.3s ease 0s, background-color 0.6s ease 0s;
+    background-color: color-mix(in lab, var(--bs-primary) 20%, transparent) !important;
+    opacity: 1.0;
 }
 
 .form-check-input:focus {
-  box-shadow: 0px 0px 2px 0.15rem color-mix(in lab, var(--bs-secondary) 20%, transparent);
-	background-color: color-mix(in lab, var(--bs-primary) 20%, transparent) !important;
-		/*transform: scale(1.15);*/
-	transition: transform 0.3s ease 0s, background-color 0.6s ease 0s;
+    box-shadow: 0px 0px 2px 0.15rem color-mix(in lab, var(--bs-secondary) 20%, transparent);
+    background-color: color-mix(in lab, var(--bs-primary) 20%, transparent) !important;
+    /*transform: scale(1.15);*/
+    transition: transform 0.3s ease 0s, background-color 0.6s ease 0s;
 
 }
 
 .form-check-input:checked {
-  background-color: var(--bs-primary) !important;
-  background-image: var(--bs-form-check-bg-image) !important;
+    background-color: var(--bs-primary) !important;
+    background-image: var(--bs-form-check-bg-image) !important;
 }
 
-.form-check-input:not(:checked), .form-check-input:not(:disabled) {
-  background: transparent;
-	background-color: color-mix(in lab, var(--bs-secondary) 0%, transparent);
+.form-check-input:not(:checked),
+.form-check-input:not(:disabled) {
+    background: transparent;
+    background-color: color-mix(in lab, var(--bs-secondary) 0%, transparent);
 
 }
 
 .form-check-input:disabled {
-  opacity: 0.4;
-  border: 1px solid color-mix(in lab, currentcolor 40%, transparent);
+    opacity: 0.4;
+    border: 1px solid color-mix(in lab, currentcolor 40%, transparent);
 }
 
 /* fullscreen session position */
-#deskarea0 { left: 0 !important; }
+#deskarea0 {
+    left: 0 !important;
+}
 
 .fsize {
     width: 210px !important;
-	}
+}
 
 
 /* **************************************************************** */
 /* Login Page */
 #body.arg_hide.login {
-  background: linear-gradient(to bottom right, #3b5376 0%, #222f42 40%) !important;
-  cursor: default !important;
-  user-select: none !important;
+    background: linear-gradient(to bottom right, #3b5376 0%, #222f42 40%) !important;
+    cursor: default !important;
+    user-select: none !important;
 }
+
 #body.arg_hide.login input[type="text"],
 #body.arg_hide.login input[type="password"],
 #body.arg_hide.login input[type="email"],
 #body.arg_hide.login textarea {
-  cursor: text !important;
-  user-select: text !important;
+    cursor: text !important;
+    user-select: text !important;
 }
 
 /*
@@ -1312,99 +1429,141 @@ Specificity: (0,2,0)
 
 /*Update "background-image" below to Change the Logo on Login Screen. */
 #backgroundImage {
-  opacity: 0.02 !important;
-  /*background-image: url(/images/login/DevRyanBearVector.png) !important;*/
+    opacity: 0.02 !important;
+    /*background-image: url(/images/login/DevRyanBearVector.png) !important;*/
 }
 
-#loginpanel, #createpanel, #resetpanel, #tokenpanel, #resettokenpanel, #resetpasswordpanel, #checkemailpanel, #waitpushpanel {
-  padding: 50px 70px 18px 70px !important;
-  margin: 0 !important;
-  background: rgba(255, 255, 255, 0.5) !important;
-  backdrop-filter: blur(10px) !important;
-  -webkit-backdrop-filter: blur(10px) !important;
-  border: 1px solid rgba(255, 255, 255, 0.2) !important;
-  border-radius: 15px !important;
-  box-shadow: 0 8px 32px rgb(174 177 230 / 37%) !important;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  position: relative !important;
-  color: #f0f0f0 !important;
+#loginpanel,
+#createpanel,
+#resetpanel,
+#tokenpanel,
+#resettokenpanel,
+#resetpasswordpanel,
+#checkemailpanel,
+#waitpushpanel {
+    padding: 50px 70px 18px 70px !important;
+    margin: 0 !important;
+    background: rgba(255, 255, 255, 0.5) !important;
+    backdrop-filter: blur(10px) !important;
+    -webkit-backdrop-filter: blur(10px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
+    border-radius: 15px !important;
+    box-shadow: 0 8px 32px rgb(174 177 230 / 37%) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    position: relative !important;
+    color: #f0f0f0 !important;
 }
 
-#loginpanel:hover, #createpanel:hover, #resetpanel:hover, #tokenpanel:hover, #resettokenpanel:hover, #resetpasswordpanel:hover, #checkemailpanel:hover, #waitpushpanel:hover {
-  /* transform: translateY(-2px) !important; */
-  box-shadow: 0 12px 40px rgba(31, 38, 135, 0.5) !important;
+#loginpanel:hover,
+#createpanel:hover,
+#resetpanel:hover,
+#tokenpanel:hover,
+#resettokenpanel:hover,
+#resetpasswordpanel:hover,
+#checkemailpanel:hover,
+#waitpushpanel:hover {
+    /* transform: translateY(-2px) !important; */
+    box-shadow: 0 12px 40px rgba(31, 38, 135, 0.5) !important;
 }
 
 
 #welcomeText {
-  position: absolute !important;
-  top: -40px !important;
-  left: 50% !important;
-  transform: translateX(-50%) !important;
-  color: rgba(255, 255, 255, 0.9) !important;
-  font-size: 1.2rem !important;
-  text-align: center !important;
-  z-index: 10 !important;
-  background: rgba(26, 26, 46, 0.8) !important;
-  padding: 8px 16px !important;
-  border-radius: 8px !important;
-  white-space: nowrap !important;
+    position: absolute !important;
+    top: -40px !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    color: rgba(255, 255, 255, 0.9) !important;
+    font-size: 1.2rem !important;
+    text-align: center !important;
+    z-index: 10 !important;
+    background: rgba(26, 26, 46, 0.8) !important;
+    padding: 8px 16px !important;
+    border-radius: 8px !important;
+    white-space: nowrap !important;
 }
 
-#loginpanelform, #createpanel form, #resetpanel form, #tokenpanel form, #resettokenpanel form, #resetpasswordpanel form, #checkemailpanel form, #waitpushpanel form {
-  display: flex;
-  flex-direction: column !important;
-  gap: 20px !important;
+#loginpanelform,
+#createpanel form,
+#resetpanel form,
+#tokenpanel form,
+#resettokenpanel form,
+#resetpasswordpanel form,
+#checkemailpanel form,
+#waitpushpanel form {
+    display: flex;
+    flex-direction: column !important;
+    gap: 20px !important;
 }
 
-#loginuserpassdiv table, #createpanel table, #resetpanel table, #tokenpanel table, #resettokenpanel table, #resetpasswordpanel table, #checkemailpanel table, #waitpushpanel table {
-  display: flex;
-  flex-direction: column !important;
-  gap: 40px !important;
-  width: 100% !important;
+#loginuserpassdiv table,
+#createpanel table,
+#resetpanel table,
+#tokenpanel table,
+#resettokenpanel table,
+#resetpasswordpanel table,
+#checkemailpanel table,
+#waitpushpanel table {
+    display: flex;
+    flex-direction: column !important;
+    gap: 40px !important;
+    width: 100% !important;
 }
 
-#loginuserpassdiv table tr, #createpanel table tr, #resetpanel table tr, #tokenpanel table tr, #resettokenpanel table tr, #resetpasswordpanel table tr, #checkemailpanel table tr, #waitpushpanel table tr {
-  display: block;
+#loginuserpassdiv table tr,
+#createpanel table tr,
+#resetpanel table tr,
+#tokenpanel table tr,
+#resettokenpanel table tr,
+#resetpasswordpanel table tr,
+#checkemailpanel table tr,
+#waitpushpanel table tr {
+    display: block;
 }
 
-#loginuserpassdiv table td, #createpanel table td, #resetpanel table td, #tokenpanel table td, #resettokenpanel table td, #resetpasswordpanel table td, #checkemailpanel table td, #waitpushpanel table td {
-  display: block;
-  width: 100% !important;
+#loginuserpassdiv table td,
+#createpanel table td,
+#resetpanel table td,
+#tokenpanel table td,
+#resettokenpanel table td,
+#resetpasswordpanel table td,
+#checkemailpanel table td,
+#waitpushpanel table td {
+    display: block;
+    width: 100% !important;
 }
 
 #loginpanel #password {
-  position: relative !important;
-  background-color: #dbdbdb !important;
-  padding: 15px 40px 15px 15px !important;
-  border-radius: 10px !important;
-  border: none !important;
-  font-size: 1rem !important;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    position: relative !important;
+    background-color: #dbdbdb !important;
+    padding: 15px 40px 15px 15px !important;
+    border-radius: 10px !important;
+    border: none !important;
+    font-size: 1rem !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
 #loginpanel #password:focus {
-  outline: none !important;
-  box-shadow: 0 0 0 3px rgba(15, 52, 96, 0.3) !important;
-  background: rgba(219, 219, 219, 0.9) !important;
-  transform: scale(1.02) !important;
+    outline: none !important;
+    box-shadow: 0 0 0 3px rgba(15, 52, 96, 0.3) !important;
+    background: rgba(219, 219, 219, 0.9) !important;
+    transform: scale(1.02) !important;
 }
 
 #loginpanel #password::after {
-  content: '👁️' !important;
-  position: absolute !important;
-  right: 12px !important;
-  top: 50% !important;
-  transform: translateY(-50%) !important;
-  font-size: 1.2rem !important;
-  color: #666 !important;
-  cursor: pointer !important;
-  pointer-events: none !important;
-  transition: opacity 0.3s !important;
+    content: '👁️' !important;
+    position: absolute !important;
+    right: 12px !important;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    font-size: 1.2rem !important;
+    color: #666 !important;
+    cursor: pointer !important;
+    pointer-events: none !important;
+    transition: opacity 0.3s !important;
 }
 
 #loginpanel #password:focus::after {
-  opacity: 0.7 !important;
+    opacity: 0.7 !important;
 }
 
 #body.arg_hide.login #resettokenpanel input#resetTokenOkButton,
@@ -1414,20 +1573,19 @@ Specificity: (0,2,0)
 #body.arg_hide.login #checkemailpanel input#changeEmailButton,
 #body.arg_hide.login #checkemailpanel input#checkEmailButton2,
 #body.arg_hide.login #resetpasswordpanel table td input#resetPassButton,
-#body.arg_hide.login #createpanel table td input#createButton
-{
-  width: 100% !important;
-  margin-top: 35px !important;
-  padding: 15px !important;
-  background: linear-gradient(135deg, #0f3460, #0f4c75);
-  color: white;
-  font-weight: 600 !important;
-  text-transform: uppercase !important;
-  letter-spacing: 1px !important;
-  border: none !important;
-  border-radius: 10px !important;
-  cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+#body.arg_hide.login #createpanel table td input#createButton {
+    width: 100% !important;
+    margin-top: 35px !important;
+    padding: 15px !important;
+    background: linear-gradient(135deg, #0f3460, #0f4c75);
+    color: white;
+    font-weight: 600 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+    border: none !important;
+    border-radius: 10px !important;
+    cursor: pointer;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
 #body.arg_hide.login #resettokenpanel input#resetTokenOkButton:not(:disabled):hover,
@@ -1437,79 +1595,92 @@ Specificity: (0,2,0)
 #body.arg_hide.login #checkemailpanel input#changeEmailButton:not(:disabled):hover,
 #body.arg_hide.login #checkemailpanel input#checkEmailButton2:not(:disabled):hover,
 #body.arg_hide.login #resetpasswordpanel table td input#resetPassButton:not(:disabled):hover,
-#body.arg_hide.login #createpanel table td input#createButton:not(:disabled):hover
-{
-  background: linear-gradient(135deg, #0f4c75, #0f3460) !important;
-  /* transform: translateY(-1px) !important; */
-  box-shadow: 0 4px 12px rgba(15, 52, 96, 0.4) !important;
+#body.arg_hide.login #createpanel table td input#createButton:not(:disabled):hover {
+    background: linear-gradient(135deg, #0f4c75, #0f3460) !important;
+    /* transform: translateY(-1px) !important; */
+    box-shadow: 0 4px 12px rgba(15, 52, 96, 0.4) !important;
 }
 
 #loginpanel #showPassHintLink {
-  background-color: #dbdbdb !important;
-  text-align: center !important;
-  cursor: pointer !important;
-  color: #0f3460 !important;
-  text-decoration: none !important;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  padding: 15px !important;
-  border-radius: 10px !important;
+    background-color: #dbdbdb !important;
+    text-align: center !important;
+    cursor: pointer !important;
+    color: #0f3460 !important;
+    text-decoration: none !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    padding: 15px !important;
+    border-radius: 10px !important;
 }
 
 #loginpanel #showPassHintLink:hover {
-  background: rgba(219, 219, 219, 0.8) !important;
+    background: rgba(219, 219, 219, 0.8) !important;
 }
 
 #body.arg_hide.login #resetAccountDiv {
-  color: #f0f0f0 !important;
-  text-align: center !important;
-  padding: 10px 0 !important;
-  font-size: 0.9rem !important;
+    color: #f0f0f0 !important;
+    text-align: center !important;
+    padding: 10px 0 !important;
+    font-size: 0.9rem !important;
 }
 
 #body.arg_hide.login #resetAccountDiv a {
-  color: #f0f0f0 !important;
-  text-decoration: none !important;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    color: #f0f0f0 !important;
+    text-decoration: none !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
 #body.arg_hide.login #resetAccountDiv a:hover {
-  color: white !important;
-  text-decoration: underline !important;
+    color: white !important;
+    text-decoration: underline !important;
 }
 
 
 #body.arg_hide.login a {
-  color: #f0f0f0 !important;
-  text-decoration: none !important;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    color: #f0f0f0 !important;
+    text-decoration: none !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
 #body.arg_hide.login a:hover {
-  color: white !important;
-  text-decoration: underline !important;
+    color: white !important;
+    text-decoration: underline !important;
 }
 
-#loginpanel input[id], #createpanel input[id], #resetpanel input[id], #tokenpanel input[id], #resettokenpanel input[id], #resetpasswordpanel input[id], #checkemailpanel input[id], #waitpushpanel input[id] {
-  background-color: #dbdbdb !important;
-  padding: 15px !important;
-  border-radius: 10px !important;
-  border: none !important;
-  font-size: 1rem !important;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+#loginpanel input[id],
+#createpanel input[id],
+#resetpanel input[id],
+#tokenpanel input[id],
+#resettokenpanel input[id],
+#resetpasswordpanel input[id],
+#checkemailpanel input[id],
+#waitpushpanel input[id] {
+    background-color: #dbdbdb !important;
+    padding: 15px !important;
+    border-radius: 10px !important;
+    border: none !important;
+    font-size: 1rem !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
-#loginpanel input[id]:focus, #createpanel input[id]:focus, #resetpanel input[id]:focus, #tokenpanel input[id]:focus, #resettokenpanel input[id]:focus, #resetpasswordpanel input[id]:focus, #checkemailpanel input[id]:focus, #waitpushpanel input[id]:focus {
-  outline: none !important;
-  box-shadow: 0 0 0 3px rgba(15, 52, 96, 0.3) !important;
-  /* background: rgba(219, 219, 219, 0.9) !important; */
-  transform: scale(1.02) !important;
+#loginpanel input[id]:focus,
+#createpanel input[id]:focus,
+#resetpanel input[id]:focus,
+#tokenpanel input[id]:focus,
+#resettokenpanel input[id]:focus,
+#resetpasswordpanel input[id]:focus,
+#checkemailpanel input[id]:focus,
+#waitpushpanel input[id]:focus {
+    outline: none !important;
+    box-shadow: 0 0 0 3px rgba(15, 52, 96, 0.3) !important;
+    /* background: rgba(219, 219, 219, 0.9) !important; */
+    transform: scale(1.02) !important;
 }
 
-#body.arg_hide.login td#bottomLanguageSelect > select#d2langselect {
-  background-color: #dbdbdb !important;
-  padding: 10px !important;
-  border-radius: 5px !important;
-  border: none !important;
+#body.arg_hide.login td#bottomLanguageSelect>select#d2langselect {
+    background-color: #dbdbdb !important;
+    padding: 10px !important;
+    border-radius: 5px !important;
+    border: none !important;
 }
 
 #body.arg_hide.login #authStrategies a {
@@ -1517,47 +1688,47 @@ Specificity: (0,2,0)
 }
 
 #body.arg_hide.login #authStrategies a {
-  /*margin: 5px !important;*/
-  border-radius: 50% !important;
-  /* box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important; */
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-  overflow: hidden !important;
+    /*margin: 5px !important;*/
+    border-radius: 50% !important;
+    /* box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3) !important; */
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    overflow: hidden !important;
 }
 
 #body.arg_hide.login #authStrategies a:hover {
-  /* transform: translateY(-20px) !important; */
-  box-shadow: 0 10px 12px rgba(0, 0, 0, 0.4) !important;
+    /* transform: translateY(-20px) !important; */
+    box-shadow: 0 10px 12px rgba(0, 0, 0, 0.4) !important;
 }
 
 #body.arg_hide.login #authStrategies img {
-  margin: 5px !important;
-  width: 40px !important;
-  height: 40px !important;
-  border-radius: 50% !important;
-  display: block !important;
+    margin: 5px !important;
+    width: 40px !important;
+    height: 40px !important;
+    border-radius: 50% !important;
+    display: block !important;
     transform: scale(0.8);
-	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
 #body.arg_hide.login #authStrategies img:hover {
     transform: scale(0.9) translateY(-5px);
-	transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
 }
 
 #body.arg_hide.login #authStrategies hr {
-  width: 100% !important;
-  border: none !important;
-  height: 1px !important;
-  background: rgba(255, 255, 255, 0.2) !important;
-  margin-bottom: 15px !important;
+    width: 100% !important;
+    border: none !important;
+    height: 1px !important;
+    background: rgba(255, 255, 255, 0.2) !important;
+    margin-bottom: 15px !important;
 }
 
 #body.arg_hide.login #authStrategies div {
-  text-align: center !important;
-  width: 100% !important;
-  margin-bottom: 10px !important;
-  color: rgba(255, 255, 255, 0.8) !important;
-  font-size: 0.9rem !important;
+    text-align: center !important;
+    width: 100% !important;
+    margin-bottom: 10px !important;
+    color: rgba(255, 255, 255, 0.8) !important;
+    font-size: 0.9rem !important;
 }
 
 /* Optional Hide Terms & Privacy Link on Login Page.  */
@@ -1568,45 +1739,68 @@ Specificity: (0,2,0)
 */
 
 @media (max-width: 480px) {
-  #loginpanel, #createpanel, #resetpanel, #tokenpanel, #resettokenpanel, #resetpasswordpanel, #checkemailpanel, #waitpushpanel {
-    padding: 30px 20px 18px 20px !important;
-    border-radius: 15px !important;
-  }
 
-  #loginpanel input[id], #createpanel input[id], #resetpanel input[id], #tokenpanel input[id], #resettokenpanel input[id], #resetpasswordpanel input[id], #checkemailpanel input[id], #waitpushpanel input[id] {
-    padding: 12px !important;
-  }
+    #loginpanel,
+    #createpanel,
+    #resetpanel,
+    #tokenpanel,
+    #resettokenpanel,
+    #resetpasswordpanel,
+    #checkemailpanel,
+    #waitpushpanel {
+        padding: 30px 20px 18px 20px !important;
+        border-radius: 15px !important;
+    }
 
-  input#loginButton, input#eresetButton {
-    padding: 12px !important;
-  }
+    #loginpanel input[id],
+    #createpanel input[id],
+    #resetpanel input[id],
+    #tokenpanel input[id],
+    #resettokenpanel input[id],
+    #resetpasswordpanel input[id],
+    #checkemailpanel input[id],
+    #waitpushpanel input[id] {
+        padding: 12px !important;
+    }
 
-  #authStrategies img {
-    width: 35px !important;
-    height: 35px !important;
-  }
+    input#loginButton,
+    input#eresetButton {
+        padding: 12px !important;
+    }
+
+    #authStrategies img {
+        width: 35px !important;
+        height: 35px !important;
+    }
 }
 
 @media (resolution: 1.25dppx) and (min-resolution: 120dpi) {
-  #loginpanel, #createpanel, #resetpanel, #tokenpanel, #resettokenpanel, #resetpasswordpanel, #checkemailpanel, #waitpushpanel {
-    backdrop-filter: blur(5px) !important;
-    -webkit-backdrop-filter: blur(5px) !important;
-  }
+
+    #loginpanel,
+    #createpanel,
+    #resetpanel,
+    #tokenpanel,
+    #resettokenpanel,
+    #resetpasswordpanel,
+    #checkemailpanel,
+    #waitpushpanel {
+        backdrop-filter: blur(5px) !important;
+        -webkit-backdrop-filter: blur(5px) !important;
+    }
 }
 
 
 #resetpasswordpanel table td:not(:has(input)),
 #createpanel table td:not(:has(input)),
-#resettokenpanel table td:not(:has(input))
-{
-	text-align: left !important;
-	color: #f0f0f0 !important;
-	margin-top: 15px;
+#resettokenpanel table td:not(:has(input)) {
+    text-align: left !important;
+    color: #f0f0f0 !important;
+    margin-top: 15px;
 }
 
-#body.arg_hide.login #newAccountCaptchaImg > td:nth-child(2) {
+#body.arg_hide.login #newAccountCaptchaImg>td:nth-child(2) {
     text-align: unset !important;
-	margin-top: unset !important;
+    margin-top: unset !important;
 }
 
 #body.arg_hide.login tr#newAccountCaptchaImg {
@@ -1614,9 +1808,10 @@ Specificity: (0,2,0)
     border-radius: 14px;
 }
 
-#body.arg_hide.login #passwordPolicyCallout, #body.arg_hide.login #rpasswordPolicyCallout {
+#body.arg_hide.login #passwordPolicyCallout,
+#body.arg_hide.login #rpasswordPolicyCallout {
     width: 140px;
-	background-color: #747474;
+    background-color: #747474;
     font-size: 13px;
 }
 
@@ -1625,43 +1820,41 @@ Specificity: (0,2,0)
     cursor: default !important;
     color: #00000029 !important;
 }
-	
+
 /* **************************************************************** */
 /* Masthead */
 /* Masthead Custom Colors */
 @media (min-width: 769px) {
     #masthead {
-		/* background-color: #222f42 !important; /* Melo */
-		background-image: url(../logo.png), linear-gradient(90deg, var(--bs-primary) 66%, var(--bs-secondary) 133%);
-	}
+        /* background-color: #222f42 !important; /* Melo */
+        background-image: url(../logo.png), linear-gradient(90deg, var(--bs-primary) 66%, var(--bs-secondary) 133%);
+    }
 }
 
 @media (max-width: 768px) {
-#masthead {
-  position: relative;
-  background: linear-gradient(
-    90deg,
-    var(--bs-primary) 66%,
-    var(--bs-secondary) 133%
-  );
-  overflow: visible;
-	background-size: unset !important;
-}
+    #masthead {
+        position: relative;
+        background: linear-gradient(90deg,
+                var(--bs-primary) 66%,
+                var(--bs-secondary) 133%);
+        overflow: visible;
+        background-size: unset !important;
+    }
 
-#masthead::before {
-  content: "";
-  position: absolute;
-  top: 50%;
-  left: 0;
-  width: 18rem;
-  height: 2.5rem;
-  transform: translateY(-50%);
-  background-image: url(../logo.png);
-  background-repeat: no-repeat;
-  background-position: left center;
-  pointer-events: none;
-  background-size: 18rem 2.5rem;
-}
+    #masthead::before {
+        content: "";
+        position: absolute;
+        top: 50%;
+        left: 0;
+        width: 18rem;
+        height: 2.5rem;
+        transform: translateY(-50%);
+        background-image: url(../logo.png);
+        background-repeat: no-repeat;
+        background-position: left center;
+        pointer-events: none;
+        background-size: 18rem 2.5rem;
+    }
 }
 
 /* Masthead Company name size */
@@ -1692,13 +1885,13 @@ Specificity: (0,2,0)
     cursor: default !important;
     display: flex !important;
     align-items: center !important;
-	margin-top: -2px;
-	margin-right: 15px;
+    margin-top: -2px;
+    margin-right: 15px;
 }
 
-#devListToolbarViewIcons span[id^="devViewButton"] > svg,
-#devListToolbarViewIcons div[id^="devViewPageButton"] > div[class^="viewSelector"],
-#devListToolbarViewIcons div[id^="devViewPageButton"] > svg {
+#devListToolbarViewIcons span[id^="devViewButton"]>svg,
+#devListToolbarViewIcons div[id^="devViewPageButton"]>div[class^="viewSelector"],
+#devListToolbarViewIcons div[id^="devViewPageButton"]>svg {
     display: none !important;
 }
 
@@ -1722,7 +1915,7 @@ Specificity: (0,2,0)
     background: transparent;
     overflow: hidden !important;
     opacity: 1 !important;
-	margin-left: 10px;
+    margin-left: 10px;
 }
 
 #devListToolbarViewIcons span[id^="devViewButton"][style*="display: block"]::before,
@@ -1745,7 +1938,7 @@ Specificity: (0,2,0)
     mask-position: center !important;
     transition: background-color 0.2s ease !important;
     z-index: 1 !important;
-	/* transform: scale(0.8) !important; */
+    /* transform: scale(0.8) !important; */
 }
 
 #devListToolbarViewIcons #devViewPageButton1[style*="display: block"]::before,
@@ -1778,24 +1971,28 @@ Specificity: (0,2,0)
     -webkit-mask-image: url('/images/icons/AppsListDetail.svg') !important;
     mask-image: url('/images/icons/AppsListDetail.svg') !important;
 }
+
 #devListToolbarViewIcons #devViewButton2[style*="display: block"]::before,
 #devListToolbarViewIcons #devViewButton2[style*="display: inline"]::before,
 #devListToolbarViewIcons #devViewButton2:not([style*="display"])::before {
     -webkit-mask-image: url('/images/icons/TextColumnTwoLeft.svg') !important;
     mask-image: url('/images/icons/TextColumnTwoLeft.svg') !important;
 }
+
 #devListToolbarViewIcons #devViewButton3[style*="display: block"]::before,
 #devListToolbarViewIcons #devViewButton3[style*="display: inline"]::before,
 #devListToolbarViewIcons #devViewButton3:not([style*="display"])::before {
     -webkit-mask-image: url('/images/icons/Grid.svg') !important;
     mask-image: url('/images/icons/Grid.svg') !important;
 }
+
 #devListToolbarViewIcons #devViewButton4[style*="display: block"]::before,
 #devListToolbarViewIcons #devViewButton4[style*="display: inline"]::before,
 #devListToolbarViewIcons #devViewButton4:not([style*="display"])::before {
     -webkit-mask-image: url('/images/icons/Map.svg') !important;
     mask-image: url('/images/icons/Map.svg') !important;
 }
+
 #devListToolbarViewIcons #devViewButton5[style*="display: block"]::before,
 #devListToolbarViewIcons #devViewButton5[style*="display: inline"]::before,
 #devListToolbarViewIcons #devViewButton5:not([style*="display"])::before {
@@ -1809,18 +2006,21 @@ Specificity: (0,2,0)
     -webkit-mask-image: url('/images/icons/ArrowPrevious.svg') !important;
     mask-image: url('/images/icons/ArrowPrevious.svg') !important;
 }
+
 #devListToolbarViewIcons #devViewPageButton2[style*="display: block"]::before,
 #devListToolbarViewIcons #devViewPageButton2[style*="display: inline"]::before,
 #devListToolbarViewIcons #devViewPageButton2:not([style*="display"])::before {
     -webkit-mask-image: url('/images/icons/IosArrowLeft.svg') !important;
     mask-image: url('/images/icons/IosArrowLeft.svg') !important;
 }
+
 #devListToolbarViewIcons #devViewPageButton3[style*="display: block"]::before,
 #devListToolbarViewIcons #devViewPageButton3[style*="display: inline"]::before,
 #devListToolbarViewIcons #devViewPageButton3:not([style*="display"])::before {
     -webkit-mask-image: url('/images/icons/IosArrowRight.svg') !important;
     mask-image: url('/images/icons/IosArrowRight.svg') !important;
 }
+
 #devListToolbarViewIcons #devViewPageButton4[style*="display: block"]::before,
 #devListToolbarViewIcons #devViewPageButton4[style*="display: inline"]::before,
 #devListToolbarViewIcons #devViewPageButton4:not([style*="display"])::before {
@@ -1836,9 +2036,9 @@ Specificity: (0,2,0)
 #devListToolbarViewIcons div[id^="devViewPageButton"][style*="display: block"]:hover,
 #devListToolbarViewIcons div[id^="devViewPageButton"][style*="display: inline"]:hover,
 #devListToolbarViewIcons div[id^="devViewPageButton"]:not([style*="display"]):hover {
-	transform: scale(1.2) !important;
-	background-color: color-mix(in lab, currentColor 5%, transparent) !important;
-	color: color-mix(in lab, currentColor 80%, black) !important;
+    transform: scale(1.2) !important;
+    background-color: color-mix(in lab, currentColor 5%, transparent) !important;
+    color: color-mix(in lab, currentColor 80%, black) !important;
 }
 
 .viewSelectorSel {
@@ -1852,7 +2052,8 @@ Specificity: (0,2,0)
 }
 
 /* === fullscreen button === */
-#devListToolbarViewIcons > svg[role="button"], #devListToolbarViewIcons2 > svg[role="button"] {
+#devListToolbarViewIcons>svg[role="button"],
+#devListToolbarViewIcons2>svg[role="button"] {
     width: 36px !important;
     height: 36px !important;
     padding: 6px !important;
@@ -1866,13 +2067,16 @@ Specificity: (0,2,0)
     fill: currentColor !important;
     overflow: hidden !important;
 }
-#devListToolbarViewIcons > svg[role="button"] > path,
-#devListToolbarViewIcons > svg[role="button"] > title,
-#devListToolbarViewIcons2 > svg[role="button"] > path,
-#devListToolbarViewIcons2 > svg[role="button"] > title {
+
+#devListToolbarViewIcons>svg[role="button"]>path,
+#devListToolbarViewIcons>svg[role="button"]>title,
+#devListToolbarViewIcons2>svg[role="button"]>path,
+#devListToolbarViewIcons2>svg[role="button"]>title {
     display: none !important;
 }
-#devListToolbarViewIcons > svg[role="button"], #devListToolbarViewIcons2 > svg[role="button"] {
+
+#devListToolbarViewIcons>svg[role="button"],
+#devListToolbarViewIcons2>svg[role="button"] {
     background-color: black !important;
     -webkit-mask-image: url('/images/icons/FullScreenMaximize.svg') !important;
     mask-image: url('/images/icons/FullScreenMaximize.svg') !important;
@@ -1883,10 +2087,14 @@ Specificity: (0,2,0)
     mask-repeat: no-repeat !important;
     mask-position: center !important;
 }
-.night #devListToolbarViewIcons > svg[role="button"], .night #devListToolbarViewIcons2 > svg[role="button"] {
+
+.night #devListToolbarViewIcons>svg[role="button"],
+.night #devListToolbarViewIcons2>svg[role="button"] {
     background-color: white !important;
 }
-#devListToolbarViewIcons > svg[role="button"]:hover, #devListToolbarViewIcons2 > svg[role="button"]:hover {
+
+#devListToolbarViewIcons>svg[role="button"]:hover,
+#devListToolbarViewIcons2>svg[role="button"]:hover {
     background-color: var(--bs-primary) !important;
 }
 
@@ -1895,99 +2103,101 @@ Specificity: (0,2,0)
 #devListToolbarSpan #CollapseAllButton2,
 #devListToolbarSpan #ExpandAllButton,
 #devListToolbarSpan #ExpandAllButton2 {
-	position: relative;
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	width: 24px;
-	height: 24px;
-	cursor: pointer;
-	border-radius: 6px;
-	transition: all 0.2s ease;
-	color: currentColor;
-	background: transparent;
-	overflow: hidden;
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    color: currentColor;
+    background: transparent;
+    overflow: hidden;
 }
 
 #devListToolbarSpan #CollapseAllButton svg,
 #devListToolbarSpan #ExpandAllButton svg,
 #devListToolbarSpan #CollapseAllButton2 svg,
 #devListToolbarSpan #ExpandAllButton2 svg {
-	display: none !important;
+    display: none !important;
 }
 
 #devListToolbarSpan #CollapseAllButton:not([style*="display: none"])::before,
 #devListToolbarSpan #ExpandAllButton:not([style*="display: none"])::before,
 #devListToolbarSpan #CollapseAllButton2:not([style*="display: none"])::before,
 #devListToolbarSpan #ExpandAllButton2:not([style*="display: none"])::before {
-	content: '';
-	position: absolute;
-	width: 24px;
-	height: 24px;
-	background-color: currentColor;
-	-webkit-mask-size: contain;
-	-webkit-mask-repeat: no-repeat;
-	-webkit-mask-position: center;
-	mask-size: contain;
-	mask-repeat: no-repeat;
-	mask-position: center;
-	z-index: 1;
+    content: '';
+    position: absolute;
+    width: 24px;
+    height: 24px;
+    background-color: currentColor;
+    -webkit-mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-size: contain;
+    mask-repeat: no-repeat;
+    mask-position: center;
+    z-index: 1;
 }
 
 #devListToolbarSpan #CollapseAllButton:not([style*="display: none"])::before,
 #devListToolbarSpan #CollapseAllButton2:not([style*="display: none"])::before {
-	-webkit-mask-image: url('/images/icons/ArrowMinimizeVertical.svg');
-	mask-image: url('/images/icons/ArrowMinimizeVertical.svg');
+    -webkit-mask-image: url('/images/icons/ArrowMinimizeVertical.svg');
+    mask-image: url('/images/icons/ArrowMinimizeVertical.svg');
 }
 
 #devListToolbarSpan #ExpandAllButton:not([style*="display: none"])::before,
 #devListToolbarSpan #ExpandAllButton2:not([style*="display: none"])::before {
-	-webkit-mask-image: url('/images/icons/ArrowMaximizeVertical.svg');
-	mask-image: url('/images/icons/ArrowMaximizeVertical.svg');
+    -webkit-mask-image: url('/images/icons/ArrowMaximizeVertical.svg');
+    mask-image: url('/images/icons/ArrowMaximizeVertical.svg');
 }
 
 /* === devListToolbarSettings === */
 #devListToolbarSpan #devListToolbarSettings:not([style*="display: none"]) {
-	position: relative;
-	display: inline-flex !important;
-	align-items: center;
-	justify-content: center;
-	width: 24px;
-	height: 24px;
-	cursor: pointer;
-	border-radius: 6px;
-	transition: all 0.2s ease;
-	color: currentColor;
-	background: transparent;
-	overflow: hidden;
-	fill: none !important;
-	stroke: none !important;
+    position: relative;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    color: currentColor;
+    background: transparent;
+    overflow: hidden;
+    fill: none !important;
+    stroke: none !important;
 
-/* === SVG === */
-	background-color: currentColor;
-	-webkit-mask-image: url('/images/icons/TextGrammarSettings.svg');
-	-webkit-mask-size: 24px 24px;
-	-webkit-mask-repeat: no-repeat;
-	-webkit-mask-position: center;
-	mask-image: url('/images/icons/TextGrammarSettings.svg');
-	mask-size: 24px 24px;
-	mask-repeat: no-repeat;
-	mask-position: center;
+    /* === SVG === */
+    background-color: currentColor;
+    -webkit-mask-image: url('/images/icons/TextGrammarSettings.svg');
+    -webkit-mask-size: 24px 24px;
+    -webkit-mask-repeat: no-repeat;
+    -webkit-mask-position: center;
+    mask-image: url('/images/icons/TextGrammarSettings.svg');
+    mask-size: 24px 24px;
+    mask-repeat: no-repeat;
+    mask-position: center;
 }
 
 /* === hide original === */
 #devListToolbarSpan #devListToolbarSettings:not([style*="display: none"]) path {
-	display: none !important;
+    display: none !important;
 }
 
-#p11 > div:nth-child(4) {
+#p11>div:nth-child(4) {
     right: 60px !important;
     margin-top: -28px !important;
     font-size: xx-small !important;
 }
 
-#p11capslock, #p11scrolllock, #p11numlock {
-	margin-left: 12px !important;
+#p11capslock,
+#p11scrolllock,
+#p11numlock {
+    margin-left: 12px !important;
     background-color: rgb(218, 218, 218) !important;
     background-color: lightgray !important;
     padding: 2px 7px !important;
@@ -2018,6 +2228,7 @@ Specificity: (0,2,0)
         height: calc(100vh - 317px) !important;
         max-height: calc(100vh - 317px) !important;
     }
+
     #deskarea3x {
         height: calc(100vh - 288px) !important;
         max-height: calc(100vh - 288px) !important;
@@ -2032,6 +2243,7 @@ Specificity: (0,2,0)
         height: calc(100vh - 65px) !important;
         max-height: calc(100vh - 65px) !important;
     }
+
     #termarea3x {
         height: calc(100vh - 350px) !important;
         max-height: calc(100vh - 350px) !important;
@@ -2041,6 +2253,7 @@ Specificity: (0,2,0)
         height: calc(100vh - 314px) !important;
         max-height: calc(100vh - 314px) !important;
     }
+
     #p13filetable {
         height: calc(100vh - 350px) !important;
         max-height: calc(100vh - 350px) !important;
@@ -2050,6 +2263,7 @@ Specificity: (0,2,0)
         height: calc(100vh - 376px) !important;
         max-height: calc(100vh - 376px) !important;
     }
+
     #Term {
         height: calc(100vh - 350px) !important;
         max-height: calc(100vh - 350px) !important;
@@ -2059,6 +2273,7 @@ Specificity: (0,2,0)
         height: calc(100vh - 376px) !important;
         max-height: calc(100vh - 376px) !important;
     }
+
     #termarea3xdiv {
         height: calc(100vh - 350px) !important;
         max-height: calc(100vh - 350px) !important;
@@ -2068,6 +2283,7 @@ Specificity: (0,2,0)
         height: calc(100vh - 376px) !important;
         max-height: calc(100vh - 376px) !important;
     }
+
     #p13toolbar .areaHead2 {
         flex-wrap: wrap !important;
         gap: 4px !important;
@@ -2085,11 +2301,13 @@ Specificity: (0,2,0)
         white-space: nowrap !important;
         min-width: fit-content !important;
     }
+
     #p13toolbar .areaHead2 .d-flex {
         flex-wrap: wrap !important;
         width: 100% !important;
         max-width: 100% !important;
     }
+
     #p13toolbar .areaHead2 input[value="Cut"],
     #p13toolbar .areaHead2 input[value="Copy"],
     #p13toolbar .areaHead2 input[value="Paste"],
@@ -2100,11 +2318,13 @@ Specificity: (0,2,0)
     #p13toolbar .areaHead2 input[value="Open"] {
         display: none !important;
     }
+
     #p13toolbarBottom .style6 {
         background-color: transparent !important;
         border: none !important;
         padding: 2px !important;
     }
+
     #p13toolbarBottom td:has(#p13bottomstatus) {
         background-color: transparent !important;
         background: none !important;
@@ -2114,6 +2334,7 @@ Specificity: (0,2,0)
         color: #666 !important;
         font-size: 12px !important;
     }
+
     .fulldesk #termarea3x[style*="height"] {
         height: calc(100vh - 120px) !important;
         max-height: calc(100vh - 120px) !important;
@@ -2129,6 +2350,7 @@ Specificity: (0,2,0)
         height: calc(100vh - 120px) !important;
         max-height: calc(100vh - 120px) !important;
     }
+
     #termarea3x[style*="calc(-55px + 100vh)"] {
         height: calc(100vh - 120px) !important;
         max-height: calc(100vh - 120px) !important;
@@ -2139,6 +2361,7 @@ Specificity: (0,2,0)
         height: calc(100vh - 120px) !important;
         max-height: calc(100vh - 120px) !important;
     }
+
     #p11 #p11title #devListToolbarViewIcons,
     #devListToolbarViewIcons2,
     #devListToolbarViewIcons3,
@@ -2147,17 +2370,18 @@ Specificity: (0,2,0)
     .fa-maximize {
         display: none !important;
     }
+
     .notifiyBox {
-		top: 67px !important;
+        top: 67px !important;
         right: 10px !important;
     }
 }
 
 /* **************************************************************** */
 /* My Events - Remove horizontal scrolling in the Events view */
-#MainMenuMyEvents.fullselect ~ div #container,
-#EventsSubMenu ~ div .style1 table,
-#page_leftbar + div table tbody tr td:last-child {
+#MainMenuMyEvents.fullselect~div #container,
+#EventsSubMenu~div .style1 table,
+#page_leftbar+div table tbody tr td:last-child {
     white-space: normal !important;
     word-wrap: break-word !important;
     overflow-wrap: break-word !important;
@@ -2185,7 +2409,8 @@ Specificity: (0,2,0)
     width: 20px !important;
 }
 
-.deviceNotifyDotSub, .deviceNotifySmallDotSub {
+.deviceNotifyDotSub,
+.deviceNotifySmallDotSub {
     background-color: #48cb45 !important;
     box-shadow: unset !important;
 }
@@ -2210,39 +2435,40 @@ Specificity: (0,2,0)
 }
 
 .night .notifiyBox {
-	background-color: #1c1e1e !important;
-	box-shadow: 0 0 12px #050505ba !important;
+    background-color: #1c1e1e !important;
+    box-shadow: 0 0 12px #050505ba !important;
 }
 
-.notifiyBox::before, .notifiyBox::after {
-	content: unset !important;
-	border: unset !important;
+.notifiyBox::before,
+.notifiyBox::after {
+    content: unset !important;
+    border: unset !important;
 }
 
 #notifiyBox .notification .unselectable {
-  color: var(--bs-body-color) !important;
+    color: var(--bs-body-color) !important;
 }
 
 .notification:hover {
     background-color: color-mix(in lab, currentcolor 5%, transparent) !important;
-	transition: background-color 0.2s ease;
+    transition: background-color 0.2s ease;
 }
 
 #notifyRemoveAll:hover {
-	background-color: #e3e3e3 !important;
+    background-color: #e3e3e3 !important;
 }
 
 .night #notifyRemoveAll:hover {
-	background-color: #414141 !important;
+    background-color: #414141 !important;
 }
 
 .notification {
-	border-top: 1px solid var(--bs-border-color-translucent) !important;
-	border-radius: 7px !important;
+    border-top: 1px solid var(--bs-border-color-translucent) !important;
+    border-radius: 7px !important;
 }
 
-#notifiyBox .customScroll > .notification:first-child {
-	border-top: unset !important;
+#notifiyBox .customScroll>.notification:first-child {
+    border-top: unset !important;
 }
 
 /* Notification flex */
@@ -2270,15 +2496,15 @@ Specificity: (0,2,0)
     width: 100% !important;
     box-sizing: border-box !important;
     flex-shrink: 0 !important;
-	border-top: unset !important;
+    border-top: unset !important;
     border-bottom: 1px solid var(--bs-border-color-translucent) !important;
     color: var(--bs-body-color) !important;
-	font-size: small !important;
-	border-radius: 7px !important;
-	}
+    font-size: small !important;
+    border-radius: 7px !important;
+}
 
 .night #notifyRemoveAll {
-	background-color: #1c1e1e;
+    background-color: #1c1e1e;
 }
 
 #notifiyBox .notification {
@@ -2304,14 +2530,14 @@ Specificity: (0,2,0)
     display: block;
 }
 
-#notifiyBox .notification > div[onclick*="notificationSelected"]:not(.j1) {
+#notifiyBox .notification>div[onclick*="notificationSelected"]:not(.j1) {
     margin: 5px;
     display: block !important;
     overflow: visible;
     width: auto;
 }
 
-#notifiyBox .notification > div:last-child {
+#notifiyBox .notification>div:last-child {
     clear: both;
     margin-left: 5px;
     margin-bottom: 5px;
@@ -2337,68 +2563,80 @@ Specificity: (0,2,0)
 /* TopBar - Hide and raise device list */
 
 #column_l {
-  margin-top: 0 !important;
-  padding: 15px 0 0 15px !important;
+    margin-top: 0 !important;
+    padding: 15px 0 0 15px !important;
 }
 
-body.fullscreen:not(.menu_stack) #column_l:has(
-  #p1:not([style*="display: none"], [style*="display:none"]),
-  #p2:not([style*="display: none"], [style*="display:none"]),
-  #p5:not([style*="display: none"], [style*="display:none"])
-) {
-  margin-top: -24px !important;
+body.fullscreen:not(.menu_stack) #column_l:has(#p1:not([style*="display: none"], [style*="display:none"]),
+    #p2:not([style*="display: none"], [style*="display:none"]),
+    #p5:not([style*="display: none"], [style*="display:none"])) {
+    margin-top: -24px !important;
 }
 
 
 @media (max-width: 768px) {
-body.fullscreen:not(.menu_stack) #column_l:has(
-  #p1:not([style*="display: none"], [style*="display:none"]),
-  #p2:not([style*="display: none"], [style*="display:none"]),
-  #p5:not([style*="display: none"], [style*="display:none"])
-) {
-  margin-top: unset !important;
-}
+
+    body.fullscreen:not(.menu_stack) #column_l:has(#p1:not([style*="display: none"], [style*="display:none"]),
+        #p2:not([style*="display: none"], [style*="display:none"]),
+        #p5:not([style*="display: none"], [style*="display:none"])) {
+        margin-top: unset !important;
+    }
 }
 
 #xdevices {
-	/* height: calc(-165px + 100vh) !important; */
+    /* height: calc(-165px + 100vh) !important; */
     max-height: calc(-145px + 100vh) !important;
-	margin-left: 4px !important;
+    margin-left: 4px !important;
 }
 
 #p2info {
-	height: calc(-122px + 100vh) !important;
+    height: calc(-122px + 100vh) !important;
     max-height: calc(-122px + 100vh) !important;
 }
 
 #p3events {
-	height: calc(-183px + 100vh) !important;
+    height: calc(-183px + 100vh) !important;
 }
+
 #p10info {
-	height: calc(-145px + 100vh) !important;
+    height: calc(-145px + 100vh) !important;
     max-height: calc(-145px + 100vh) !important;
 }
 
 #xdevicesmap {
     height: calc(100vh - 145px) !important;
-	max-height: calc(100vh - 145px) !important;
+    max-height: calc(100vh - 145px) !important;
 }
 
 /* Topbar colors */
-.style3, .style3x, #MainSubMenuSpan, #MeshSubMenuSpan, #EventsSubMenuSpan, #UserSubMenuSpan, #UsersSubMenuSpan, #ServerSubMenuSpan, #MainMenuSpan, #MainSubMenu, #MeshSubMenu, #UserSubMenu, #ServerSubMenu, #UserDummyMenu, #PluginSubMenu {
-	background: unset !important;
-	background-color: var(--bs-secondary-bg) !important;
-	font-weight: lighter;
+.style3,
+.style3x,
+#MainSubMenuSpan,
+#MeshSubMenuSpan,
+#EventsSubMenuSpan,
+#UserSubMenuSpan,
+#UsersSubMenuSpan,
+#ServerSubMenuSpan,
+#MainMenuSpan,
+#MainSubMenu,
+#MeshSubMenu,
+#UserSubMenu,
+#ServerSubMenu,
+#UserDummyMenu,
+#PluginSubMenu {
+    background: unset !important;
+    background-color: var(--bs-secondary-bg) !important;
+    font-weight: lighter;
 }
 
 .style3sel,
 .fullselect,
 #EventsSubMenu .style3sel {
-	/* background-color: var(--bs-secondary-bg) !important; */
-	color: var(--bs-emphasis-color) !important;
+    /* background-color: var(--bs-secondary-bg) !important; */
+    color: var(--bs-emphasis-color) !important;
     background-color: #f3f3f3 !important;
-	border-right: 2px solid var(--bs-secondary-border-subtle) !important;
-	border-left: 2px solid var(--bs-secondary-border-subtle) !important;
+    border-right: 2px solid var(--bs-secondary-border-subtle) !important;
+    border-left: 2px solid var(--bs-secondary-border-subtle) !important;
 }
 
 .night .style3sel,
@@ -2407,49 +2645,53 @@ body.fullscreen:not(.menu_stack) #column_l:has(
     background-color: #1c1e1e !important;
 }
 
-#EventsSubMenu .style3x, .style3x {
+#EventsSubMenu .style3x,
+.style3x {
     /* background-color: #0000003b !important; */
-	border-right: 1px solid #97979740 !important;
-	background: #dddddd2e !important;
-	/* font-weight: normal; */
+    border-right: 1px solid #97979740 !important;
+    background: #dddddd2e !important;
+    /* font-weight: normal; */
 }
 
-#EventsSubMenu .style3x:hover, .style3x:hover {
+#EventsSubMenu .style3x:hover,
+.style3x:hover {
     background-color: color-mix(in lab, currentcolor 5%, transparent) !important;
-	transition: background-color 0.2s ease;
+    transition: background-color 0.2s ease;
 }
 
 /* Event tabs Gap  */
 #EventsSubMenu .col {
-/*     margin: 0 !important; */
+    /*     margin: 0 !important; */
     padding-left: 0 !important;
     padding-right: 0 !important;
-/*    width: auto !important; */
+    /*    width: auto !important; */
 }
 
-#uiMenuButton{
-	top: -20px;
+#uiMenuButton {
+    top: -20px;
 }
 
 
 /* **************************************************************** */
 /* TopMenu */
-#userDropdownMenuContainer, #uiSubmenu {
+#userDropdownMenuContainer,
+#uiSubmenu {
     padding: 4px;
 }
 
 #userDropdown {
-	background: unset !important;
+    background: unset !important;
 }
 
 #userDropdownName {
     font-size: 0.8rem;
 }
 
-#userDropdownMenu, .userDropdownSubmenu {
-	color: var(--bs-body-color) !important;
-	font-size: small !important;
-	border-radius: 10px !important;
+#userDropdownMenu,
+.userDropdownSubmenu {
+    color: var(--bs-body-color) !important;
+    font-size: small !important;
+    border-radius: 10px !important;
     box-shadow: 0 0 12px #0000004d;
     backdrop-filter: blur(12px) saturate(120%) brightness(1.1) !important;
     -webkit-backdrop-filter: blur(12px) saturate(120%) brightness(1.1) !important;
@@ -2458,102 +2700,107 @@ body.fullscreen:not(.menu_stack) #column_l:has(
     transform: translateZ(0) !important;
 }
 
-.night #userDropdownMenu, .night .userDropdownSubmenu {
+.night #userDropdownMenu,
+.night .userDropdownSubmenu {
     box-shadow: 0 0 12px #050505ba !important;
 }
 
 #userDropdownMenu {
-	background-color: rgba(242, 242, 242, 0.75) !important;
+    background-color: rgba(242, 242, 242, 0.75) !important;
 }
 
 .night #userDropdownMenu {
-	background-color: rgba(41, 44, 44, 0.75) !important;
+    background-color: rgba(41, 44, 44, 0.75) !important;
 }
 
 .userDropdownSubmenu {
-	background-color: rgba(242, 242, 242, 0.95) !important;
+    background-color: rgba(242, 242, 242, 0.95) !important;
 }
 
 .night .userDropdownSubmenu {
-	background-color: rgba(41, 44, 44, 0.95) !important;
+    background-color: rgba(41, 44, 44, 0.95) !important;
 }
 
 .userDropdownMenuItem,
 .userDropdownSubmenuItem {
-	border-radius: 7px !important;
+    border-radius: 7px !important;
 }
 
 @media (min-width: 769px) {
-	.userDropdownMenuItem:hover,
-	.userDropdownSubmenuItem:hover,
-	#userDropdownMenuContainer:has(#uiSubmenu:hover) .userDropdownUISettings {
-		background-color: color-mix(in lab, currentcolor 5%, transparent) !important;
-		transition: background-color 0.2s ease;
-	}
+
+    .userDropdownMenuItem:hover,
+    .userDropdownSubmenuItem:hover,
+    #userDropdownMenuContainer:has(#uiSubmenu:hover) .userDropdownUISettings {
+        background-color: color-mix(in lab, currentcolor 5%, transparent) !important;
+        transition: background-color 0.2s ease;
+    }
 }
 
-.userDropdownMenuItem span, .userDropdownMenuItem {
-	color: unset !important;
-	font-size: small !important;
+.userDropdownMenuItem span,
+.userDropdownMenuItem {
+    color: unset !important;
+    font-size: small !important;
 }
 
 #userDropdownMenuDivider {
     border-top: var(--bs-border-width) solid !important;
-	opacity: .25 !important;
+    opacity: .25 !important;
 }
+
 #uiSubmenu {
     right: 100% !important;
     margin-right: -4px !important;
 }
 
 @media (max-width: 769px) {
-	.userDropdownSubmenu {
-		/* background-color: rgba(242, 242, 242, 0.75) !important; */
-		background-color: unset !important;
-		box-shadow: unset !important;
-		backdrop-filter: unset !important;
-	}
-	.night .userDropdownSubmenu {
-		/* background-color: rgba(41, 44, 44, 0.75) !important; */
-		background-color: unset !important;
-		box-shadow: unset !important;
-		backdrop-filter: unset !important;
-	}
+    .userDropdownSubmenu {
+        /* background-color: rgba(242, 242, 242, 0.75) !important; */
+        background-color: unset !important;
+        box-shadow: unset !important;
+        backdrop-filter: unset !important;
+    }
+
+    .night .userDropdownSubmenu {
+        /* background-color: rgba(41, 44, 44, 0.75) !important; */
+        background-color: unset !important;
+        box-shadow: unset !important;
+        backdrop-filter: unset !important;
+    }
 }
 
 
 /* hover */
 @media (min-width: 769px) {
-	#uiSubmenu {
-	display: block !important;
-	opacity: 0 !important;
-	transform: translateX(12px) !important;
-	transition: 
-		opacity 0.18s ease 0s, 
-		transform 0.3s ease 0s;
-	pointer-events: none !important;
-	transition-delay: 0.1s !important;
-	}
+    #uiSubmenu {
+        display: block !important;
+        opacity: 0 !important;
+        transform: translateX(12px) !important;
+        transition:
+            opacity 0.18s ease 0s,
+            transform 0.3s ease 0s;
+        pointer-events: none !important;
+        transition-delay: 0.1s !important;
+    }
 
-	#userDropdownMenuContainer:has(#uiSubmenu:hover) .userDropdownUISettings {
-		background-color: color-mix(in lab, currentcolor 5%, transparent) !important;
-		transition: background-color 0.2s ease;
-	}
+    #userDropdownMenuContainer:has(#uiSubmenu:hover) .userDropdownUISettings {
+        background-color: color-mix(in lab, currentcolor 5%, transparent) !important;
+        transition: background-color 0.2s ease;
+    }
 
-	.userDropdownUISettings:hover + #uiSubmenu,
-	#uiSubmenu:hover {
-	display: block !important;
-	opacity: 1 !important;
-	transform: translateX(0) !important;
-	pointer-events: auto !important;
-	transition-delay: 0.4s !important;
-	}
-	
-	#userDropdownMenuContainer:has(.userDropdownUISettings:hover) .fa-chevron-right,
-	#userDropdownMenuContainer:has(#uiSubmenu:hover) .fa-chevron-right {
-	transform: rotate(90deg) !important;
-	transition-delay: 0.3s !important;
-	}
+    .userDropdownUISettings:hover+#uiSubmenu,
+    #uiSubmenu:hover {
+        display: block !important;
+        opacity: 1 !important;
+        transform: translateX(0) !important;
+        pointer-events: auto !important;
+        transition-delay: 0.4s !important;
+    }
+
+    #userDropdownMenuContainer:has(.userDropdownUISettings:hover) .fa-chevron-right,
+    #userDropdownMenuContainer:has(#uiSubmenu:hover) .fa-chevron-right {
+        transform: rotate(90deg) !important;
+        transition-delay: 0.3s !important;
+    }
 }
 
 .userDropdownMenuIcon {
@@ -2562,6 +2809,6 @@ body.fullscreen:not(.menu_stack) #column_l:has(
 }
 
 #userDropdownMenuContainer .fa-chevron-right {
-	width: 12px !important;
+    width: 12px !important;
     height: 12px !important;
 }

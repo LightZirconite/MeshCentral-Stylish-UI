@@ -32,7 +32,7 @@
     let indicatorHideTimer = null;
     let indicator = null;
     let arrow = null;
-	let trueFsActive = false;
+    let trueFsActive = false;
 
     const injectCSS = () => {
       if (document.getElementById(CONFIG.FULLSCREEN_STYLE_ID)) return;
@@ -182,11 +182,11 @@
     };
 
     const disable = () => {
-		//container.style.transform = '';
-		container.style.left = '0';
-		//container.style.top = '';
-		//container.style.width = '';
-		//container.style.height = '';
+      //container.style.transform = '';
+      container.style.left = '0';
+      //container.style.top = '';
+      //container.style.width = '';
+      //container.style.height = '';
 
       if (!enabled) return;
       enabled = false;
@@ -209,24 +209,24 @@
       const tryPatch = () => {
         if (typeof window.deskToggleFull !== 'function') { setTimeout(tryPatch, CONFIG.PATCH_RETRY_MS); return; }
         const orig = window.deskToggleFull;
-		if (!trueFsActive && enabled) {
-  disable();
-}
+        if (!trueFsActive && enabled) {
+          disable();
+        }
         window.deskToggleFull = function (ev) {
-  const was = !!window.fullscreen;
-  const fake = ev
-    ? Object.assign({}, ev, { shiftKey: !ev.shiftKey })
-    : { shiftKey: true };
-	trueFsActive = !!fake.shiftKey;
-	const res = orig.call(this, fake);
-	const now = !!window.fullscreen;
-	if (!was && now && trueFsActive) {
-	requestAnimationFrame(enable);
-	} else if (was && !now && enabled) {
-	disable();
-	}
+          const was = !!window.fullscreen;
+          const fake = ev
+            ? Object.assign({}, ev, { shiftKey: !ev.shiftKey })
+            : { shiftKey: true };
+          trueFsActive = !!fake.shiftKey;
+          const res = orig.call(this, fake);
+          const now = !!window.fullscreen;
+          if (!was && now && trueFsActive) {
+            requestAnimationFrame(enable);
+          } else if (was && !now && enabled) {
+            disable();
+          }
 
-  return res;
+          return res;
         };
       };
       tryPatch();
@@ -238,7 +238,7 @@
         const inFs = !!(document.fullscreenElement || document.webkitFullscreenElement ||
           document.mozFullScreenElement || document.msFullscreenElement);
         if (!inFs && enabled && trueFsActive) try { window.deskToggleFull?.(); } catch (_) { }
-		trueFsActive = false;
+        trueFsActive = false;
       }, true));
     };
 
@@ -317,8 +317,8 @@
           #mc-zoom-help-banner.visible{opacity:1}
         </style>
         <span id="mc-zoom-label">Zoom: 100%</span>
-        <input type="range" id="mc-zoom-slider" min="${CONFIG.ZOOM_MIN*100}" max="${CONFIG.ZOOM_MAX*100}"
-               value="${CONFIG.ZOOM_DEFAULT*100}" step="${CONFIG.ZOOM_STEP*100}">
+        <input type="range" id="mc-zoom-slider" min="${CONFIG.ZOOM_MIN * 100}" max="${CONFIG.ZOOM_MAX * 100}"
+               value="${CONFIG.ZOOM_DEFAULT * 100}" step="${CONFIG.ZOOM_STEP * 100}">
         <span id="mc-zoom-help">?</span>
         <div id="mc-zoom-help-banner">
           • Ctrl + / − : zoom<br>
@@ -414,7 +414,7 @@
     };
 
     const init = (bar, cont) => {
-	// Reset
+      // Reset
       deskEl = zoomUI = helpBtn = helpBanner = keyHandler = wheelHandler = null;
       panX = panY = 0;
       zoomValue = CONFIG.ZOOM_DEFAULT;
@@ -441,32 +441,194 @@
 })();
 
 
+// === REMOTE CURSOR CUSTOMIZATION ===
+(() => {
+  'use strict';
+
+  const CURSOR_IMAGE_URL = '/images/icons/remote-cursor.png';
+  const CURSOR_HOTSPOT = '10px 10px'; // center of 20px cursor (assuming 20x20px image)
+
+  let deskParent = null;
+  let desk = null;
+  let deskarea0 = null;
+  let isOverDesk = false;
+  let cursorStyleElement = null;
+
+  const injectCursorStyles = () => {
+    if (cursorStyleElement) return;
+
+    cursorStyleElement = document.createElement('style');
+    cursorStyleElement.id = 'remote-cursor-style';
+    cursorStyleElement.textContent = `
+      /* Remote desktop cursor styling */
+      #DeskParent,
+      #Desk,
+      #deskarea0 {
+        cursor: url('${CURSOR_IMAGE_URL}') ${CURSOR_HOTSPOT}, auto !important;
+      }
+      
+      /* Ensure default cursor on rest of body when over desk */
+      body.remote-desk-active * {
+        cursor: url('${CURSOR_IMAGE_URL}') ${CURSOR_HOTSPOT}, auto !important;
+      }
+      
+      body:not(.remote-desk-active) #DeskParent,
+      body:not(.remote-desk-active) #Desk {
+        cursor: auto !important;
+      }
+    `;
+    document.head.appendChild(cursorStyleElement);
+  };
+
+  const setupCursorTracking = () => {
+    // Find desktop elements
+    deskParent = document.getElementById('DeskParent');
+    desk = document.getElementById('Desk');
+    deskarea0 = document.getElementById('deskarea0');
+
+    // If DeskParent doesn't exist but Desk does, use Desk's parent
+    if (!deskParent && desk && desk.parentElement) {
+      deskParent = desk.parentElement;
+    }
+
+    // Fallback: use deskarea0 if available
+    const target = deskParent || desk || deskarea0;
+
+    if (!target) {
+      // Retry in a moment if elements not found
+      setTimeout(setupCursorTracking, 500);
+      return;
+    }
+
+    const updateCursorState = () => {
+      if (isOverDesk) {
+        document.body.classList.add('remote-desk-active');
+      } else {
+        document.body.classList.remove('remote-desk-active');
+      }
+    };
+
+    // Setup mouse tracking on DeskParent
+    if (deskParent) {
+      deskParent.addEventListener('mouseenter', () => {
+        isOverDesk = true;
+        updateCursorState();
+      }, true);
+
+      deskParent.addEventListener('mouseleave', () => {
+        isOverDesk = false;
+        updateCursorState();
+      }, true);
+
+      deskParent.addEventListener('mousemove', (e) => {
+        if (!isOverDesk) return;
+
+        // Check if still within bounds (to handle black borders)
+        const bounds = deskParent.getBoundingClientRect();
+        const x = e.clientX;
+        const y = e.clientY;
+
+        // Check if within bounds
+        const isInside = x >= bounds.left && x <= bounds.right &&
+          y >= bounds.top && y <= bounds.bottom;
+
+        if (!isInside) {
+          isOverDesk = false;
+          updateCursorState();
+        }
+      }, true);
+    }
+
+    // Also track on Desk canvas element directly
+    if (desk && !deskParent) {
+      desk.addEventListener('mouseenter', () => {
+        isOverDesk = true;
+        updateCursorState();
+      }, true);
+
+      desk.addEventListener('mouseleave', () => {
+        isOverDesk = false;
+        updateCursorState();
+      }, true);
+    }
+
+    // Track on deskarea0 to catch fullscreen boundary leaves
+    if (deskarea0) {
+      deskarea0.addEventListener('mousemove', (e) => {
+        if (!isOverDesk) return;
+
+        const bounds = deskParent?.getBoundingClientRect() ||
+          desk?.getBoundingClientRect() ||
+          deskarea0.getBoundingClientRect();
+
+        if (!bounds) return;
+
+        const x = e.clientX;
+        const y = e.clientY;
+        const isInside = x >= bounds.left && x <= bounds.right &&
+          y >= bounds.top && y <= bounds.bottom;
+
+        if (!isInside) {
+          isOverDesk = false;
+          updateCursorState();
+        }
+      }, true);
+    }
+  };
+
+  // Initialize when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      injectCursorStyles();
+      setupCursorTracking();
+    });
+  } else {
+    injectCursorStyles();
+    setupCursorTracking();
+  }
+
+  // Retry setup periodically in case DOM changes or elements are added later
+  const retryInterval = setInterval(() => {
+    if (!deskParent && !desk) {
+      const checkParent = document.getElementById('DeskParent');
+      const checkDesk = document.getElementById('Desk');
+      if (checkParent || checkDesk) {
+        setupCursorTracking();
+        clearInterval(retryInterval);
+      }
+    } else {
+      clearInterval(retryInterval);
+    }
+  }, 1000);
+})();
+
+
 // Default Display 1 once per session
 (() => {
-    let forced = false;
+  let forced = false;
 
-    const hook = setInterval(() => {
-        if (typeof window.deskDisplayInfo !== "function") return;
-        clearInterval(hook);
+  const hook = setInterval(() => {
+    if (typeof window.deskDisplayInfo !== "function") return;
+    clearInterval(hook);
 
-        const original = window.deskDisplayInfo;
+    const original = window.deskDisplayInfo;
 
-        window.deskDisplayInfo = function (sender, displays, selDisplay) {
-            const r = original.apply(this, arguments);
+    window.deskDisplayInfo = function (sender, displays, selDisplay) {
+      const r = original.apply(this, arguments);
 
-            if (displays === null) {
-                forced = false;
-                return r;
-            }
+      if (displays === null) {
+        forced = false;
+        return r;
+      }
 
-            if (!forced && selDisplay === 65535 && displays) {
-                forced = true;
-                setTimeout(() => deskSetDisplay(1), 80);
-            }
+      if (!forced && selDisplay === 65535 && displays) {
+        forced = true;
+        setTimeout(() => deskSetDisplay(1), 80);
+      }
 
-            return r;
-        };
-    }, 150);
+      return r;
+    };
+  }, 150);
 })();
 
 
@@ -476,41 +638,41 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // ==================== SETTINGS ====================
 
-  const TOGGLE_WIDTH   = '2.3rem';
-  const TOGGLE_HEIGHT  = '1.4rem';
-  const TOGGLE_BORDER  = '0.068rem';
-  const PADDING        = '0.00rem';
-  const ICONS_PADDING  = '0.05rem 0.0rem';
-  const ICONS_INACTIVE_ALPHA  = '0.3';
-  const ICONS_ACTIVE_SCALE  = '1.0';
-  const ICONS_INACTIVE_SCALE  = '0.7';
+  const TOGGLE_WIDTH = '2.3rem';
+  const TOGGLE_HEIGHT = '1.4rem';
+  const TOGGLE_BORDER = '0.068rem';
+  const PADDING = '0.00rem';
+  const ICONS_PADDING = '0.05rem 0.0rem';
+  const ICONS_INACTIVE_ALPHA = '0.3';
+  const ICONS_ACTIVE_SCALE = '1.0';
+  const ICONS_INACTIVE_SCALE = '0.7';
   //const ICONS_SIZE  = (parseFloat(TOGGLE_HEIGHT) - (parseFloat(TOGGLE_BORDER) * 2)) + 'rem';
-  const ICONS_SIZE  = '0.9rem';
-  const ICONS_GAP = (((parseFloat(TOGGLE_WIDTH) / 2 ) - (parseFloat(TOGGLE_BORDER))) - (parseFloat(ICONS_SIZE))) + 'rem';
+  const ICONS_SIZE = '0.9rem';
+  const ICONS_GAP = (((parseFloat(TOGGLE_WIDTH) / 2) - (parseFloat(TOGGLE_BORDER))) - (parseFloat(ICONS_SIZE))) + 'rem';
   const SWITCH_HEIGHT = (parseFloat(TOGGLE_HEIGHT) - (parseFloat(TOGGLE_BORDER) * 2)) + 'rem';
   //const SWITCH_WIDTH = ((parseFloat(TOGGLE_WIDTH) - (parseFloat(TOGGLE_BORDER) * 2)) / 2) + 'rem';
-  const SWITCH_WIDTH = ((parseFloat(TOGGLE_WIDTH) - (parseFloat(TOGGLE_BORDER) * 2)) / 2) + (((parseFloat(TOGGLE_WIDTH) / 2 ) - (parseFloat(TOGGLE_BORDER))) - (parseFloat(ICONS_SIZE))) + 'rem';
+  const SWITCH_WIDTH = ((parseFloat(TOGGLE_WIDTH) - (parseFloat(TOGGLE_BORDER) * 2)) / 2) + (((parseFloat(TOGGLE_WIDTH) / 2) - (parseFloat(TOGGLE_BORDER))) - (parseFloat(ICONS_SIZE))) + 'rem';
   const SWITCH_BORDER_RADIUS = (parseFloat(SWITCH_HEIGHT) / 2) + 'rem';
   const SWITCH_AUTO_W = (parseFloat(TOGGLE_WIDTH) - (parseFloat(TOGGLE_BORDER) * 2)) + 'rem';
 
   // LIGHT THEME COLORS
-  const LIGHT_SWITCH  = "#1c1e1e";
-  const LIGHT_BG      = "#f3f3f3";
-  const LIGHT_BORDER  = "#f3f3f3";
+  const LIGHT_SWITCH = "#1c1e1e";
+  const LIGHT_BG = "#f3f3f3";
+  const LIGHT_BORDER = "#f3f3f3";
   //const LIGHT_SUN     = "#282523";
-  const LIGHT_SUN     = "#ff6600";
-  const LIGHT_MOON    = "#595652";
-  const LIGHT_SHADOW  = "#191919b8";
-  const LIGHT_LIGHT   = "#fff";
+  const LIGHT_SUN = "#ff6600";
+  const LIGHT_MOON = "#595652";
+  const LIGHT_SHADOW = "#191919b8";
+  const LIGHT_LIGHT = "#fff";
 
   // DARK THEME COLORS
-  const DARK_SWITCH   = "#1c1e1e";
-  const DARK_BG       = "#5c6b6b";
-  const DARK_BORDER   = "#5c6b6b";
-  const DARK_SUN      = "#cfd7d7";
-  const DARK_MOON     = "#cfd7d7";
-  const DARK_SHADOW   = "#1a1a1abf";
-  const DARK_LIGHT    = "#cfcfcf87";
+  const DARK_SWITCH = "#1c1e1e";
+  const DARK_BG = "#5c6b6b";
+  const DARK_BORDER = "#5c6b6b";
+  const DARK_SUN = "#cfd7d7";
+  const DARK_MOON = "#cfd7d7";
+  const DARK_SHADOW = "#1a1a1abf";
+  const DARK_LIGHT = "#cfcfcf87";
   // =================================================================
 
   const mastheadRight = document.querySelector('.masthead-right');
@@ -518,7 +680,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // APPLYING VARS
   const LIGHT = { bg: LIGHT_BG, border: LIGHT_BORDER, sun: LIGHT_SUN, moon: LIGHT_MOON, shadow: LIGHT_SHADOW, light: LIGHT_LIGHT, switch: LIGHT_SWITCH };
-  const DARK  = { bg: DARK_BG, border: DARK_BORDER,  sun: DARK_SUN,  moon: DARK_MOON,  shadow: DARK_SHADOW,  light: DARK_LIGHT, switch: DARK_SWITCH };
+  const DARK = { bg: DARK_BG, border: DARK_BORDER, sun: DARK_SUN, moon: DARK_MOON, shadow: DARK_SHADOW, light: DARK_LIGHT, switch: DARK_SWITCH };
 
   // ===================== CSS BASE + TRANSITIONS =====================
   if (!document.getElementById('theme-toggle-styles')) {
@@ -594,7 +756,7 @@ document.addEventListener('DOMContentLoaded', () => {
   position:relative; 
   width:${TOGGLE_WIDTH}; 
   height:${TOGGLE_HEIGHT}; 
-  border-radius:calc(${parseFloat(TOGGLE_HEIGHT)/2 + 'rem'}); 
+  border-radius:calc(${parseFloat(TOGGLE_HEIGHT) / 2 + 'rem'}); 
   padding:${PADDING}; 
   box-sizing:border-box; 
   display:flex; 
@@ -632,7 +794,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
 #theme-toggle .sun path { fill: var(--sun);}
 #theme-toggle .moon path { fill: var(--moon);}
-#theme-toggle.mode-auto .switch { left: calc(50% - ${parseFloat(SWITCH_AUTO_W)/2 + 'rem'}); width: ${SWITCH_AUTO_W}; }
+#theme-toggle.mode-auto .switch { left: calc(50% - ${parseFloat(SWITCH_AUTO_W) / 2 + 'rem'}); width: ${SWITCH_AUTO_W}; }
 #theme-toggle.mode-light .switch { left: 0rem; width: ${SWITCH_WIDTH}; }
 #theme-toggle.mode-dark .switch { left: calc(100% - ${parseFloat(SWITCH_WIDTH) + 'rem'}); width: ${SWITCH_WIDTH}; }
 
@@ -681,7 +843,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // click → switch modes
     btn.addEventListener('click', () => {
-		triggerSmoothTransition();
+      triggerSmoothTransition();
       let mode = (typeof getstore === 'function') ? getstore('nightMode', '0') : (localStorage.getItem('nightMode') || '0');
       mode = (mode === '0') ? '2' : (mode === '2') ? '1' : '0';
       if (typeof putstore === 'function') putstore('nightMode', mode); else localStorage.setItem('nightMode', mode);
@@ -697,9 +859,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!btn) return;
 
     const track = btn.querySelector('.track');
-    const sw    = btn.querySelector('.switch');
-    const mode  = (typeof getstore === 'function') ? getstore('nightMode', '0') : (localStorage.getItem('nightMode') || '0');
-	btn.title = (mode === '0') ? 'Auto Mode' : (mode === '2') ? 'Light Mode' : 'Dark Mode';
+    const sw = btn.querySelector('.switch');
+    const mode = (typeof getstore === 'function') ? getstore('nightMode', '0') : (localStorage.getItem('nightMode') || '0');
+    btn.title = (mode === '0') ? 'Auto Mode' : (mode === '2') ? 'Light Mode' : 'Dark Mode';
 
     let colors;
     if (mode === '2') colors = LIGHT;
@@ -717,58 +879,58 @@ document.addEventListener('DOMContentLoaded', () => {
     const isLight = (mode === '2') || (mode === '0' && colors === LIGHT);
     // const isAuto = (mode === '0');
 
-    btn.classList.remove('mode-auto','mode-light','mode-dark');
+    btn.classList.remove('mode-auto', 'mode-light', 'mode-dark');
     if (mode === '0') btn.classList.add('mode-auto');
     else if (mode === '2') btn.classList.add('mode-light');
     else btn.classList.add('mode-dark');
 
     // switch position and size
-	if (mode === '2') { // light mode
-	  btn.querySelectorAll('.sun').forEach(svg => svg.style.marginRight = ICONS_GAP);
-	  btn.querySelectorAll('.moon').forEach(svg => svg.style.marginRight = `-${ICONS_GAP}`);
-	  btn.querySelectorAll('.sun').forEach(svg => svg.style.marginLeft = '0rem');
-	  btn.querySelectorAll('.moon').forEach(svg => svg.style.marginLeft = '0rem');
+    if (mode === '2') { // light mode
+      btn.querySelectorAll('.sun').forEach(svg => svg.style.marginRight = ICONS_GAP);
+      btn.querySelectorAll('.moon').forEach(svg => svg.style.marginRight = `-${ICONS_GAP}`);
+      btn.querySelectorAll('.sun').forEach(svg => svg.style.marginLeft = '0rem');
+      btn.querySelectorAll('.moon').forEach(svg => svg.style.marginLeft = '0rem');
       sw.style.width = SWITCH_WIDTH;
-	  sw.style.boxShadow= 'inset var(--shadow) 3px 2px 2px -1px, inset var(--light) -3px -3px 3px -2px, var(--shadow) 1px 1px 3px -1px';
-	  btn.querySelectorAll('.sun').forEach(svg => svg.style.transform = isLight ? 'rotate(720deg)' : 'rotate(-720deg)');
+      sw.style.boxShadow = 'inset var(--shadow) 3px 2px 2px -1px, inset var(--light) -3px -3px 3px -2px, var(--shadow) 1px 1px 3px -1px';
+      btn.querySelectorAll('.sun').forEach(svg => svg.style.transform = isLight ? 'rotate(720deg)' : 'rotate(-720deg)');
     } else if (mode === '1') { // dark mode
-	  btn.querySelectorAll('.sun').forEach(svg => svg.style.marginRight = '0rem');
-	  btn.querySelectorAll('.moon').forEach(svg => svg.style.marginRight = '0rem');
-	  btn.querySelectorAll('.moon').forEach(svg => svg.style.marginLeft = ICONS_GAP);
-	  btn.querySelectorAll('.sun').forEach(svg => svg.style.marginLeft = `-${ICONS_GAP}`);
+      btn.querySelectorAll('.sun').forEach(svg => svg.style.marginRight = '0rem');
+      btn.querySelectorAll('.moon').forEach(svg => svg.style.marginRight = '0rem');
+      btn.querySelectorAll('.moon').forEach(svg => svg.style.marginLeft = ICONS_GAP);
+      btn.querySelectorAll('.sun').forEach(svg => svg.style.marginLeft = `-${ICONS_GAP}`);
       sw.style.width = SWITCH_WIDTH;
-	  sw.style.boxShadow= 'inset var(--shadow) 2px 1px 1px 0px, inset var(--light) -3px -3px 1px -3px, var(--shadow) 3px 2px 9px -3px';
+      sw.style.boxShadow = 'inset var(--shadow) 2px 1px 1px 0px, inset var(--light) -3px -3px 1px -3px, var(--shadow) 3px 2px 9px -3px';
     } else { // auto mode
-	  btn.querySelectorAll('.sun').forEach(svg => svg.style.marginRight = '0rem');
-	  btn.querySelectorAll('.moon').forEach(svg => svg.style.marginRight = '0rem');
-	  btn.querySelectorAll('.moon').forEach(svg => svg.style.marginLeft = '0rem');
-	  btn.querySelectorAll('.sun').forEach(svg => svg.style.marginLeft = '0rem');
+      btn.querySelectorAll('.sun').forEach(svg => svg.style.marginRight = '0rem');
+      btn.querySelectorAll('.moon').forEach(svg => svg.style.marginRight = '0rem');
+      btn.querySelectorAll('.moon').forEach(svg => svg.style.marginLeft = '0rem');
+      btn.querySelectorAll('.sun').forEach(svg => svg.style.marginLeft = '0rem');
       sw.style.width = SWITCH_AUTO_W;
-	  sw.style.boxShadow= 'inset var(--shadow) 2px 2px 2px -1px, inset var(--light) -3px -3px 1px -2px, var(--shadow) 3px 2px 9px -3px;';
+      sw.style.boxShadow = 'inset var(--shadow) 2px 2px 2px -1px, inset var(--light) -3px -3px 1px -2px, var(--shadow) 3px 2px 9px -3px;';
     }
 
 
     // icons opacity and scale
-	if (mode === '0') {
-		btn.querySelectorAll('.sun').forEach(svg => svg.style.transform = `scale(${ICONS_ACTIVE_SCALE})`);
-		btn.querySelectorAll('.moon').forEach(svg => svg.style.transform = `scale(${ICONS_ACTIVE_SCALE}) rotate(24deg)`);
-		btn.querySelectorAll('.sun path').forEach(p => p.style.opacity = isLight ? '1' : '0.8');
-		btn.querySelectorAll('.moon path').forEach(p => p.style.opacity = isLight ? '0.8' : '1');
-	} else {
-		btn.querySelectorAll('.sun path').forEach(p => p.style.opacity = isLight ? '1' : ICONS_INACTIVE_ALPHA);
-		btn.querySelectorAll('.sun').forEach(svg => svg.style.transform = isLight ? `scale(${ICONS_ACTIVE_SCALE}) rotate(180deg)` : `scale(${ICONS_INACTIVE_SCALE}) rotate(-180deg)`);
-		btn.querySelectorAll('.moon path').forEach(p => p.style.opacity = isLight ? ICONS_INACTIVE_ALPHA : '1');
-		btn.querySelectorAll('.moon').forEach(svg => svg.style.transform = isLight ? `scale(${ICONS_INACTIVE_SCALE}) rotate(204deg)` : `scale(${ICONS_ACTIVE_SCALE}) rotate(24deg)`);
-	}
+    if (mode === '0') {
+      btn.querySelectorAll('.sun').forEach(svg => svg.style.transform = `scale(${ICONS_ACTIVE_SCALE})`);
+      btn.querySelectorAll('.moon').forEach(svg => svg.style.transform = `scale(${ICONS_ACTIVE_SCALE}) rotate(24deg)`);
+      btn.querySelectorAll('.sun path').forEach(p => p.style.opacity = isLight ? '1' : '0.8');
+      btn.querySelectorAll('.moon path').forEach(p => p.style.opacity = isLight ? '0.8' : '1');
+    } else {
+      btn.querySelectorAll('.sun path').forEach(p => p.style.opacity = isLight ? '1' : ICONS_INACTIVE_ALPHA);
+      btn.querySelectorAll('.sun').forEach(svg => svg.style.transform = isLight ? `scale(${ICONS_ACTIVE_SCALE}) rotate(180deg)` : `scale(${ICONS_INACTIVE_SCALE}) rotate(-180deg)`);
+      btn.querySelectorAll('.moon path').forEach(p => p.style.opacity = isLight ? ICONS_INACTIVE_ALPHA : '1');
+      btn.querySelectorAll('.moon').forEach(svg => svg.style.transform = isLight ? `scale(${ICONS_INACTIVE_SCALE}) rotate(204deg)` : `scale(${ICONS_ACTIVE_SCALE}) rotate(24deg)`);
+    }
 
-	
+
   }
 
   // detect theme changes
   const mm = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
   if (mm && typeof mm.addEventListener === 'function') {
     mm.addEventListener('change', () => {
-      if ((typeof getstore === 'function' ? getstore('nightMode','0') : (localStorage.getItem('nightMode')||'0')) === '0') {
+      if ((typeof getstore === 'function' ? getstore('nightMode', '0') : (localStorage.getItem('nightMode') || '0')) === '0') {
         if (typeof setNightMode === 'function') setNightMode();
         if (typeof updateThemeIcons === 'function') updateThemeIcons();
         updateToggleUI();
@@ -786,16 +948,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // === HIDE ITEMS FROM THE DROPDOWN ===
 document.addEventListener('DOMContentLoaded', () => {
-    function hideDropdownItems() {
-        const nightItem = document.getElementById('toggleNightMenuItem');
-        if (nightItem) nightItem.style.display = 'none';
-    }
+  function hideDropdownItems() {
+    const nightItem = document.getElementById('toggleNightMenuItem');
+    if (nightItem) nightItem.style.display = 'none';
+  }
 
-    hideDropdownItems();
+  hideDropdownItems();
 
-    const menuContainer = document.getElementById('userDropdownMenuContainer');
-    if (menuContainer) {
-        const observer = new MutationObserver(hideDropdownItems);
-        observer.observe(menuContainer, { childList: true, subtree: true });
-    }
+  const menuContainer = document.getElementById('userDropdownMenuContainer');
+  if (menuContainer) {
+    const observer = new MutationObserver(hideDropdownItems);
+    observer.observe(menuContainer, { childList: true, subtree: true });
+  }
 });
