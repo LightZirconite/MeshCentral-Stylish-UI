@@ -465,17 +465,24 @@
     cursorStyleElement = document.createElement('style');
     cursorStyleElement.id = 'remote-cursor-style';
     cursorStyleElement.textContent = `
+      /* Hide cursor on the remote desk element when active */
+      .remote-cursor-hide, .remote-cursor-hide * { cursor: none !important; }
+
       /* Custom cursor element styling - only appears when over desk */
       #custom-remote-cursor {
         position: fixed;
         width: ${CURSOR_SIZE}px;
         height: ${CURSOR_SIZE}px;
         background: url('${CURSOR_IMAGE_URL}') center/contain no-repeat;
+        background-size: contain;
         pointer-events: none;
-        z-index: 999999;
+        z-index: 2147483647;
         opacity: 1;
         display: block;
-        will-change: left, top;
+        will-change: transform, opacity;
+        transform: translate3d(0,0,0);
+        transition: opacity 120ms linear;
+        -webkit-transform: translate3d(0,0,0);
       }
 
       #custom-remote-cursor.hidden {
@@ -498,18 +505,31 @@
   const updateCustomCursorPosition = () => {
     if (!customCursorElement || !lastMouseEvent) return;
 
-    // Position cursor at mouse position (offset to center it)
-    const x = lastMouseEvent.clientX - CURSOR_SIZE / 2;
-    const y = lastMouseEvent.clientY - CURSOR_SIZE / 2;
+    // Target position (centered)
+    const targetX = lastMouseEvent.clientX - CURSOR_SIZE / 2;
+    const targetY = lastMouseEvent.clientY - CURSOR_SIZE / 2;
 
-    customCursorElement.style.left = x + 'px';
-    customCursorElement.style.top = y + 'px';
+    // Smooth-follow: interpolate current transform towards target
+    customCursorElement._cx = customCursorElement._cx ?? targetX;
+    customCursorElement._cy = customCursorElement._cy ?? targetY;
+
+    // Lerp factor (0..1) - higher = snappier
+    const LERP = 0.28;
+    customCursorElement._cx += (targetX - customCursorElement._cx) * LERP;
+    customCursorElement._cy += (targetY - customCursorElement._cy) * LERP;
+
+    const tx = Math.round(customCursorElement._cx);
+    const ty = Math.round(customCursorElement._cy);
+
+    customCursorElement.style.transform = `translate3d(${tx}px, ${ty}px, 0)`;
   };
 
   const animateCursor = () => {
     if (isOverDeskDisplay && lastMouseEvent) {
       updateCustomCursorPosition();
       animationFrameId = requestAnimationFrame(animateCursor);
+    } else {
+      animationFrameId = null;
     }
   };
 
@@ -517,8 +537,13 @@
     if (!customCursorElement) createCustomCursor();
     customCursorElement.classList.remove('hidden');
     // Hide browser cursor with inline style
+    // Prefer applying a class to the desk/canvas to force hiding even if other rules exist
+    try {
+      const hideTarget = canvas || desk || deskParent;
+      if (hideTarget) hideTarget.classList.add('remote-cursor-hide');
+    } catch (e) { }
     document.body.style.cursor = 'none';
-    try { console.log('[remote-cursor] showCustomCursor'); } catch (e) { }
+    try { console.log('[remote-cursor] showCustomCursor (applied remote-cursor-hide)'); } catch (e) { }
     // Start smooth animation loop
     if (!animationFrameId) {
       animationFrameId = requestAnimationFrame(animateCursor);
@@ -529,8 +554,12 @@
     if (!customCursorElement) return;
     customCursorElement.classList.add('hidden');
     // Restore browser cursor
+    try {
+      const hideTarget = canvas || desk || deskParent;
+      if (hideTarget) hideTarget.classList.remove('remote-cursor-hide');
+    } catch (e) { }
     document.body.style.cursor = '';
-    try { console.log('[remote-cursor] hideCustomCursor'); } catch (e) { }
+    try { console.log('[remote-cursor] hideCustomCursor (removed remote-cursor-hide)'); } catch (e) { }
     // Stop animation loop
     if (animationFrameId) {
       cancelAnimationFrame(animationFrameId);
