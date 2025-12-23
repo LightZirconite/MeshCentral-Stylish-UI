@@ -460,21 +460,22 @@
     cursorStyleElement = document.createElement('style');
     cursorStyleElement.id = 'remote-cursor-style';
     cursorStyleElement.textContent = `
-      /* Remote desktop cursor styling */
+      /* Hide all default cursors when over remote desk */
+      body.remote-desk-active,
+      body.remote-desk-active * {
+        cursor: url('${CURSOR_IMAGE_URL}') ${CURSOR_HOTSPOT}, none !important;
+      }
+      
+      /* Specific elements - force custom cursor */
       #DeskParent,
       #Desk,
       #deskarea0 {
-        cursor: url('${CURSOR_IMAGE_URL}') ${CURSOR_HOTSPOT}, auto !important;
+        cursor: url('${CURSOR_IMAGE_URL}') ${CURSOR_HOTSPOT}, none !important;
       }
       
-      /* Ensure default cursor on rest of body when over desk */
-      body.remote-desk-active * {
-        cursor: url('${CURSOR_IMAGE_URL}') ${CURSOR_HOTSPOT}, auto !important;
-      }
-      
-      body:not(.remote-desk-active) #DeskParent,
-      body:not(.remote-desk-active) #Desk {
-        cursor: auto !important;
+      /* Canvas element if present */
+      canvas {
+        cursor: url('${CURSOR_IMAGE_URL}') ${CURSOR_HOTSPOT}, none !important;
       }
     `;
     document.head.appendChild(cursorStyleElement);
@@ -501,10 +502,17 @@
     }
 
     const updateCursorState = () => {
+      const body = document.body;
       if (isOverDesk) {
-        document.body.classList.add('remote-desk-active');
+        body.classList.add('remote-desk-active');
+        // Force cursor style update
+        if (deskParent) deskParent.style.cursor = `url('${CURSOR_IMAGE_URL}') ${CURSOR_HOTSPOT}, none`;
+        if (desk) desk.style.cursor = `url('${CURSOR_IMAGE_URL}') ${CURSOR_HOTSPOT}, none`;
       } else {
-        document.body.classList.remove('remote-desk-active');
+        body.classList.remove('remote-desk-active');
+        // Restore default cursor
+        if (deskParent) deskParent.style.cursor = '';
+        if (desk) desk.style.cursor = '';
       }
     };
 
@@ -528,11 +536,11 @@
         const x = e.clientX;
         const y = e.clientY;
 
-        // Check if within bounds
+        // Check if within bounds with small tolerance
         const isInside = x >= bounds.left && x <= bounds.right &&
           y >= bounds.top && y <= bounds.bottom;
 
-        if (!isInside) {
+        if (!isInside && isOverDesk) {
           isOverDesk = false;
           updateCursorState();
         }
@@ -568,12 +576,32 @@
         const isInside = x >= bounds.left && x <= bounds.right &&
           y >= bounds.top && y <= bounds.bottom;
 
-        if (!isInside) {
+        if (!isInside && isOverDesk) {
           isOverDesk = false;
           updateCursorState();
         }
       }, true);
     }
+
+    // Also monitor global mouse move for final fallback
+    document.addEventListener('mousemove', (e) => {
+      if (!isOverDesk) return;
+
+      const bounds = deskParent?.getBoundingClientRect() ||
+        desk?.getBoundingClientRect();
+
+      if (!bounds) return;
+
+      const x = e.clientX;
+      const y = e.clientY;
+      const isInside = x >= bounds.left && x <= bounds.right &&
+        y >= bounds.top && y <= bounds.bottom;
+
+      if (!isInside && isOverDesk) {
+        isOverDesk = false;
+        updateCursorState();
+      }
+    }, true);
   };
 
   // Initialize when DOM is ready
