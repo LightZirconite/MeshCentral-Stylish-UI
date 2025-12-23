@@ -530,8 +530,8 @@ tr[name="xxdevice2"] {
     padding: 4px;
     /* color: #CCC !important; */
     background-color: rgba(242, 242, 242, 0.75) !important;
-    backdrop-filter: blur(12px) saturate(120%) brightness(1.1) !important;
     -webkit-backdrop-filter: blur(12px) saturate(120%) brightness(1.1) !important;
+    backdrop-filter: blur(12px) saturate(120%) brightness(1.1) !important;
     overflow: hidden;
 }
 
@@ -572,8 +572,8 @@ hr#cxmgroupsplit {
     font-size: smaller !important;
     padding: 4px;
     background-color: rgba(242, 242, 242, 0.75) !important;
+    -webkit-backdrop-filter: blur(12px) saturate(120%) brightness(1.1) !important;
     backdrop-filter: blur(12px) saturate(120%) brightness(1.1) !important;
-    -webkit-backdrop-filter: blur(12px saturate(120%) brightness(1.1)) !important;
     overflow: hidden;
 }
 
@@ -905,10 +905,10 @@ hr#cxmgroupsplit {
 }
 
 #p17info2>table>tbody>tr>td:nth-child(1) {
-    user-select: none;
+    -ms-user-select: none;
     -webkit-user-select: none;
     -moz-user-select: none;
-    -ms-user-select: none;
+    user-select: none;
     pointer-events: none;
 }
 
@@ -1001,8 +1001,8 @@ h5 {
 
 .modal-content {
     background-color: rgba(242, 242, 242, 0.6) !important;
-    backdrop-filter: blur(16px) saturate(120%) brightness(1.1) !important;
     -webkit-backdrop-filter: blur(16px) saturate(120%) brightness(1.1) !important;
+    backdrop-filter: blur(16px) saturate(120%) brightness(1.1) !important;
     overflow: hidden;
     border-radius: 14px !important;
     border: 1px solid rgb(0 0 0 / 11%);
@@ -1010,17 +1010,17 @@ h5 {
 }
 
 .modal-content * {
-    user-select: none !important;
+    -ms-user-select: none !important;
     -webkit-user-select: none !important;
     -moz-user-select: none !important;
-    -ms-user-select: none !important;
+    user-select: none !important;
 }
 
 #d2ServerErrorsLogPre {
-    user-select: text !important;
     -webkit-user-select: text !important;
     -moz-user-select: text !important;
     -ms-user-select: text !important;
+    user-select: text !important;
 }
 
 .night .modal-content {
@@ -1036,6 +1036,7 @@ h5 {
     background-color: rgba(242, 242, 242, 0.5) !important;
     /* background-color: rgba(41, 44, 44, 0.15) !important; */
     /* background-color: rgba(41, 44, 44, 0.3) !important; */
+    -webkit-backdrop-filter: blur(3px) !important;
     backdrop-filter: blur(3px) !important;
     opacity: 1 !important;
     /* transition: opacity 1.3s linear !important; */
@@ -1145,6 +1146,7 @@ input#dp2notifyTitle {
 .form-select optgroup {
     background: rgba(242, 242, 242, 0.6) !important;
     /* color: #fff !important; */
+    -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
 }
 
@@ -1152,6 +1154,7 @@ input#dp2notifyTitle {
 .night .form-select optgroup {
     background: rgba(41, 44, 44, 0.95) !important;
     /* color: #fff !important; */
+    -webkit-backdrop-filter: blur(8px);
     backdrop-filter: blur(8px);
 }
 
@@ -1407,6 +1410,9 @@ input#p2FolderUp {
 #body.arg_hide.login {
     background: linear-gradient(to bottom right, #3b5376 0%, #222f42 40%) !important;
     cursor: default !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
     user-select: none !important;
 }
 
@@ -1415,6 +1421,9 @@ input#p2FolderUp {
 #body.arg_hide.login input[type="email"],
 #body.arg_hide.login textarea {
     cursor: text !important;
+    -webkit-user-select: text !important;
+    -moz-user-select: text !important;
+    -ms-user-select: text !important;
     user-select: text !important;
 }
 
@@ -1444,8 +1453,8 @@ input#p2FolderUp {
     padding: 50px 70px 18px 70px !important;
     margin: 0 !important;
     background: rgba(255, 255, 255, 0.5) !important;
-    backdrop-filter: blur(10px) !important;
     -webkit-backdrop-filter: blur(10px) !important;
+    backdrop-filter: blur(10px) !important;
     border: 1px solid rgba(255, 255, 255, 0.2) !important;
     border-radius: 15px !important;
     box-shadow: 0 8px 32px rgb(174 177 230 / 37%) !important;
@@ -1784,8 +1793,8 @@ input#p2FolderUp {
     #resetpasswordpanel,
     #checkemailpanel,
     #waitpushpanel {
-        backdrop-filter: blur(5px) !important;
         -webkit-backdrop-filter: blur(5px) !important;
+        backdrop-filter: blur(5px) !important;
     }
 }
 
@@ -2299,6 +2308,7 @@ input#p2FolderUp {
         margin: 2px !important;
         flex-shrink: 0 !important;
         white-space: nowrap !important;
+        min-width: -webkit-fill-available !important;
         min-width: fit-content !important;
     }
 
@@ -2693,8 +2703,8 @@ body.fullscreen:not(.menu_stack) #column_l:has(#p1:not([style*="display: none"],
     font-size: small !important;
     border-radius: 10px !important;
     box-shadow: 0 0 12px #0000004d;
-    backdrop-filter: blur(12px) saturate(120%) brightness(1.1) !important;
     -webkit-backdrop-filter: blur(12px) saturate(120%) brightness(1.1) !important;
+    backdrop-filter: blur(12px) saturate(120%) brightness(1.1) !important;
     overflow: visible !important;
     isolation: isolate !important;
     transform: translateZ(0) !important;
@@ -2757,6 +2767,7 @@ body.fullscreen:not(.menu_stack) #column_l:has(#p1:not([style*="display: none"],
         /* background-color: rgba(242, 242, 242, 0.75) !important; */
         background-color: unset !important;
         box-shadow: unset !important;
+        -webkit-backdrop-filter: unset !important;
         backdrop-filter: unset !important;
     }
 
@@ -2764,6 +2775,7 @@ body.fullscreen:not(.menu_stack) #column_l:has(#p1:not([style*="display: none"],
         /* background-color: rgba(41, 44, 44, 0.75) !important; */
         background-color: unset !important;
         box-shadow: unset !important;
+        -webkit-backdrop-filter: unset !important;
         backdrop-filter: unset !important;
     }
 }
