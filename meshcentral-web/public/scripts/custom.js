@@ -535,34 +535,17 @@
   };
 
   const isMouseOnDeskDisplay = (e) => {
-    // Try to find the actual canvas or display element
-    // First priority: canvas inside Desk
-    let displayElement = null;
+    // Desk = actual screen content WITHOUT black borders
+    // DeskParent = container WITH black borders
+    // We ONLY want to show custom cursor when over the actual Desk element
 
-    if (!displayElement && desk) {
-      const canvasInDesk = desk.querySelector('canvas');
-      if (canvasInDesk) {
-        displayElement = canvasInDesk;
-      }
-    }
+    if (!desk) return false;
 
-    // Second priority: Desk element itself
-    if (!displayElement && desk) {
-      displayElement = desk;
-    }
-
-    // Third priority: DeskParent
-    if (!displayElement && deskParent) {
-      displayElement = deskParent;
-    }
-
-    if (!displayElement) return false;
-
-    const bounds = displayElement.getBoundingClientRect();
+    const bounds = desk.getBoundingClientRect();
     const x = e.clientX;
     const y = e.clientY;
 
-    // Strict bounds check - must be completely inside, not on edges
+    // Check if STRICTLY inside Desk bounds (the actual screen, not the black borders)
     const isInside = x >= bounds.left && x <= bounds.right &&
       y >= bounds.top && y <= bounds.bottom;
 
