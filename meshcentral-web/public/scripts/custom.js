@@ -446,12 +446,12 @@
   'use strict';
 
   const CURSOR_IMAGE_URL = '/images/icons/remote-cursor.png';
-  const CURSOR_SIZE = 20; // 20x20px cursor
+  const CURSOR_SIZE = 12; // Smaller 12x12px cursor
+  const BORDER_TOLERANCE = 5; // pixels tolerance for border detection
 
   let deskParent = null;
   let desk = null;
-  let deskarea0 = null;
-  let isOverDesk = false;
+  let isOverDeskDisplay = false;
   let customCursorElement = null;
   let cursorStyleElement = null;
 
@@ -461,19 +461,7 @@
     cursorStyleElement = document.createElement('style');
     cursorStyleElement.id = 'remote-cursor-style';
     cursorStyleElement.textContent = `
-      /* AGGRESSIVELY HIDE CURSOR WHEN OVER REMOTE DESK */
-      body.remote-desk-active,
-      body.remote-desk-active *,
-      #DeskParent,
-      #DeskParent *,
-      #Desk,
-      #Desk *,
-      #deskarea0,
-      #deskarea0 * {
-        cursor: none !important;
-      }
-
-      /* Custom cursor element styling */
+      /* Custom cursor element styling - only appears when over desk */
       #custom-remote-cursor {
         position: fixed;
         width: ${CURSOR_SIZE}px;
@@ -482,7 +470,7 @@
         pointer-events: none;
         z-index: 999999;
         opacity: 1;
-        transition: opacity 0.15s ease;
+        display: block;
       }
 
       #custom-remote-cursor.hidden {
@@ -503,9 +491,9 @@
   };
 
   const updateCustomCursorPosition = (e) => {
-    if (!customCursorElement || !isOverDesk) return;
+    if (!customCursorElement) return;
 
-    // Position cursor at mouse position (offset by half size to center it)
+    // Position cursor at mouse position (offset to center it on the image hotspot)
     const x = e.clientX - CURSOR_SIZE / 2;
     const y = e.clientY - CURSOR_SIZE / 2;
 
@@ -516,26 +504,45 @@
   const showCustomCursor = () => {
     if (!customCursorElement) createCustomCursor();
     customCursorElement.classList.remove('hidden');
+    // Hide browser cursor with inline style
+    document.body.style.cursor = 'none';
   };
 
   const hideCustomCursor = () => {
     if (!customCursorElement) return;
     customCursorElement.classList.add('hidden');
+    // Restore browser cursor
+    document.body.style.cursor = '';
+  };
+
+  const isMouseOnDeskDisplay = (e) => {
+    // Get the actual display area bounds
+    const deskParent = document.getElementById('DeskParent');
+    const desk = document.getElementById('Desk');
+
+    const displayElement = deskParent || desk;
+    if (!displayElement) return false;
+
+    const bounds = displayElement.getBoundingClientRect();
+
+    // Add tolerance for detecting borders (black areas)
+    // Only consider it "on desk" if it's well inside the bounds
+    const x = e.clientX;
+    const y = e.clientY;
+
+    // Check if we're inside AND not too close to the edges (borders)
+    const isInside = x > bounds.left && x < bounds.right &&
+      y > bounds.top && y < bounds.bottom;
+
+    return isInside;
   };
 
   const setupCursorTracking = () => {
     // Find desktop elements
     deskParent = document.getElementById('DeskParent');
     desk = document.getElementById('Desk');
-    deskarea0 = document.getElementById('deskarea0');
 
-    // If DeskParent doesn't exist but Desk does, use Desk's parent
-    if (!deskParent && desk && desk.parentElement) {
-      deskParent = desk.parentElement;
-    }
-
-    // Fallback: use deskarea0 if available
-    const target = deskParent || desk || deskarea0;
+    const target = deskParent || desk;
 
     if (!target) {
       // Retry in a moment if elements not found
@@ -543,88 +550,56 @@
       return;
     }
 
-    const updateCursorState = () => {
-      const body = document.body;
-      if (isOverDesk) {
-        body.classList.add('remote-desk-active');
-        showCustomCursor();
-      } else {
-        body.classList.remove('remote-desk-active');
-        hideCustomCursor();
-      }
-    };
+    // Global mouse move handler - check position on every move
+    document.addEventListener('mousemove', (e) => {
+      const onDeskDisplay = isMouseOnDeskDisplay(e);
 
-    // Setup mouse tracking on DeskParent
+      // If transitioning
+      if (onDeskDisplay && !isOverDeskDisplay) {
+        // Entering desk display area
+        isOverDeskDisplay = true;
+        showCustomCursor();
+        updateCustomCursorPosition(e);
+      } else if (!onDeskDisplay && isOverDeskDisplay) {
+        // Leaving desk display area
+        isOverDeskDisplay = false;
+        hideCustomCursor();
+      } else if (onDeskDisplay && isOverDeskDisplay) {
+        // Already on desk, just update position
+        updateCustomCursorPosition(e);
+      }
+    }, true);
+
+    // Mouse enter handler for the desk area
     if (deskParent) {
       deskParent.addEventListener('mouseenter', (e) => {
-        isOverDesk = true;
-        updateCursorState();
-        updateCustomCursorPosition(e);
+        if (isMouseOnDeskDisplay(e)) {
+          isOverDeskDisplay = true;
+          showCustomCursor();
+          updateCustomCursorPosition(e);
+        }
       }, true);
 
       deskParent.addEventListener('mouseleave', () => {
-        isOverDesk = false;
-        updateCursorState();
-      }, true);
-
-      deskParent.addEventListener('mousemove', (e) => {
-        updateCustomCursorPosition(e);
-
-        // Check if still within bounds (to handle black borders)
-        const bounds = deskParent.getBoundingClientRect();
-        const x = e.clientX;
-        const y = e.clientY;
-
-        // Check if within bounds
-        const isInside = x >= bounds.left && x <= bounds.right &&
-          y >= bounds.top && y <= bounds.bottom;
-
-        if (!isInside && isOverDesk) {
-          isOverDesk = false;
-          updateCursorState();
-        }
+        isOverDeskDisplay = false;
+        hideCustomCursor();
       }, true);
     }
 
-    // Also track on Desk canvas element directly
-    if (desk && !deskParent) {
+    if (desk) {
       desk.addEventListener('mouseenter', (e) => {
-        isOverDesk = true;
-        updateCursorState();
-        updateCustomCursorPosition(e);
+        if (isMouseOnDeskDisplay(e)) {
+          isOverDeskDisplay = true;
+          showCustomCursor();
+          updateCustomCursorPosition(e);
+        }
       }, true);
 
       desk.addEventListener('mouseleave', () => {
-        isOverDesk = false;
-        updateCursorState();
-      }, true);
-
-      desk.addEventListener('mousemove', (e) => {
-        updateCustomCursorPosition(e);
+        isOverDeskDisplay = false;
+        hideCustomCursor();
       }, true);
     }
-
-    // Global mouse move for all cases
-    document.addEventListener('mousemove', (e) => {
-      if (!isOverDesk) return;
-
-      updateCustomCursorPosition(e);
-
-      const bounds = deskParent?.getBoundingClientRect() ||
-        desk?.getBoundingClientRect();
-
-      if (!bounds) return;
-
-      const x = e.clientX;
-      const y = e.clientY;
-      const isInside = x >= bounds.left && x <= bounds.right &&
-        y >= bounds.top && y <= bounds.bottom;
-
-      if (!isInside && isOverDesk) {
-        isOverDesk = false;
-        updateCursorState();
-      }
-    }, true);
   };
 
   // Initialize when DOM is ready
@@ -640,7 +615,7 @@
     setupCursorTracking();
   }
 
-  // Retry setup periodically in case DOM changes or elements are added later
+  // Retry setup periodically in case DOM changes
   const retryInterval = setInterval(() => {
     if (!deskParent && !desk) {
       const checkParent = document.getElementById('DeskParent');
@@ -649,8 +624,6 @@
         setupCursorTracking();
         clearInterval(retryInterval);
       }
-    } else {
-      clearInterval(retryInterval);
     }
   }, 1000);
 })();

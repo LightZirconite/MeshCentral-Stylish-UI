@@ -1,16 +1,7 @@
 /* **************************************************************** */
 /* Remote Desktop Cursor Customization */
-/* HIDE CURSOR completely when over remote desktop - JavaScript will provide custom cursor */
-#DeskParent,
-#DeskParent *,
-#Desk,
-#Desk *,
-#deskarea0,
-#deskarea0 *,
-body.remote-desk-active,
-body.remote-desk-active * {
-    cursor: none !important;
-}
+/* Only hide cursor when specifically over desk area - NOT globally */
+/* JavaScript handles the cursor display dynamically */
 
 /* **************************************************************** */
 /* Background */
