@@ -9,6 +9,7 @@
   /* -------------------------- CONFIG -------------------------- */
   const CONFIG = {
     FULLSCREEN_STYLE_ID: 'mc-true-fs-style',
+    FULLSCREEN_PATCH_FLAG: '__mcTrueFsPatched',
     HIDE_DELAY_MS: 3000,
     INTRO_DURATION_MS: 5000,
     INTRO_HIDE_DURATION_MS: 1500,
@@ -152,12 +153,11 @@
 
     const enable = () => {
       if (enabled) return;
-      enabled = true;
-
       container = document.getElementById('deskarea0');
       if (!container) return;
       topBar = document.getElementById('deskarea1');
       bottomBar = document.getElementById('deskarea4');
+      enabled = true;
 
       injectCSS();
       createIndicator();
@@ -186,12 +186,6 @@
     };
 
     const disable = () => {
-		//container.style.transform = '';
-		container.style.left = '0';
-		//container.style.top = '';
-		//container.style.width = '';
-		//container.style.height = '';
-
       if (!enabled) return;
       enabled = false;
 
@@ -201,37 +195,44 @@
       ZoomController.destroy();
 
       if (container) {
+		//container.style.transform = '';
+		container.style.left = '0';
+		//container.style.top = '';
+		//container.style.width = '';
+		//container.style.height = '';
         container.classList.remove('mc-true-fs', 'show-bars', 'show-indicator', 'intro-hide', 'hide-indicator');
         if (indicator) { indicator.remove(); indicator = null; }
         if (arrow) { arrow.remove(); arrow = null; }
       }
       const style = document.getElementById(CONFIG.FULLSCREEN_STYLE_ID);
       if (style) style.remove();
+      container = null;
+      topBar = null;
+      bottomBar = null;
+      handler = null;
     };
 
     const patch = () => {
       const tryPatch = () => {
         if (typeof window.deskToggleFull !== 'function') { setTimeout(tryPatch, CONFIG.PATCH_RETRY_MS); return; }
+        if (window.deskToggleFull[CONFIG.FULLSCREEN_PATCH_FLAG]) return;
         const orig = window.deskToggleFull;
-		if (!trueFsActive && enabled) {
-  disable();
-}
         window.deskToggleFull = function (ev) {
-  const was = !!window.fullscreen;
-  const fake = ev
-    ? Object.assign({}, ev, { shiftKey: !ev.shiftKey })
-    : { shiftKey: true };
-	trueFsActive = !!fake.shiftKey;
-	const res = orig.call(this, fake);
-	const now = !!window.fullscreen;
-	if (!was && now && trueFsActive) {
-	requestAnimationFrame(enable);
-	} else if (was && !now && enabled) {
-	disable();
-	}
-
-  return res;
+          const was = !!window.fullscreen;
+          const fake = ev
+            ? Object.assign({}, ev, { shiftKey: !ev.shiftKey })
+            : { shiftKey: true };
+          trueFsActive = !!fake.shiftKey;
+          const res = orig.call(this, fake);
+          const now = !!window.fullscreen;
+          if (!was && now && trueFsActive) {
+            requestAnimationFrame(enable);
+          } else if (was && !now && enabled) {
+            disable();
+          }
+          return res;
         };
+        window.deskToggleFull[CONFIG.FULLSCREEN_PATCH_FLAG] = true;
       };
       tryPatch();
     };
@@ -261,6 +262,9 @@
     let panX = 0, panY = 0;
     let keyHandler = null;
     let wheelHandler = null;
+    let mouseDownHandler = null;
+    let mouseMoveHandler = null;
+    let mouseUpHandler = null;
     let drag = { active: false, startX: 0, startY: 0 };
 
     const getDesk = () => {
@@ -394,7 +398,7 @@
       document.addEventListener('wheel', wheelHandler, { capture: true, passive: false });
 
       // Pan drag
-      const start = e => {
+      mouseDownHandler = e => {
         if (!e.ctrlKey || e.button !== 0) return;
         drag.active = true;
         drag.startX = e.clientX - panX;
@@ -402,19 +406,19 @@
         container.style.cursor = 'grabbing';
         e.preventDefault();
       };
-      const move = e => {
+      mouseMoveHandler = e => {
         if (!drag.active) return;
         panX = e.clientX - drag.startX;
         panY = e.clientY - drag.startY;
         apply();
       };
-      const end = () => {
+      mouseUpHandler = () => {
         drag.active = false;
-        container.style.cursor = '';
+        if (container) { container.style.cursor = ''; }
       };
-      container.addEventListener('mousedown', start, true);
-      document.addEventListener('mousemove', move, true);
-      document.addEventListener('mouseup', end, true);
+      container.addEventListener('mousedown', mouseDownHandler, true);
+      document.addEventListener('mousemove', mouseMoveHandler, true);
+      document.addEventListener('mouseup', mouseUpHandler, true);
     };
 
     const init = (bar, cont) => {
@@ -434,8 +438,13 @@
     const destroy = () => {
       if (keyHandler) document.removeEventListener('keydown', keyHandler, { capture: true });
       if (wheelHandler) document.removeEventListener('wheel', wheelHandler, { capture: true });
+      if (container && mouseDownHandler) container.removeEventListener('mousedown', mouseDownHandler, true);
+      if (mouseMoveHandler) document.removeEventListener('mousemove', mouseMoveHandler, true);
+      if (mouseUpHandler) document.removeEventListener('mouseup', mouseUpHandler, true);
       if (zoomUI && zoomUI.remove) zoomUI.remove();
       deskEl = zoomUI = helpBtn = helpBanner = keyHandler = wheelHandler = null;
+      mouseDownHandler = mouseMoveHandler = mouseUpHandler = null;
+      drag.active = false;
     };
 
     return { init, showUI, hideUI, destroy };
@@ -696,7 +705,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // update ui toggle as current mode
-  function updateToggleUI() {
+    function updateToggleUI() {
     const btn = document.getElementById('theme-toggle');
     if (!btn) return;
 
@@ -977,11 +986,13 @@ document.addEventListener('DOMContentLoaded', () => {
             isDragging = false;
             placeholder = null;
 
-            tab.setPointerCapture(e.pointerId);
+            if (typeof tab.setPointerCapture === 'function') {
+                tab.setPointerCapture(e.pointerId);
+            }
         };
 
         const onPointerMove = e => {
-            if (!tab.hasPointerCapture(e.pointerId)) return;
+            if (typeof tab.hasPointerCapture === 'function' && !tab.hasPointerCapture(e.pointerId)) return;
 
             if (isDragging) {
                 tab.style.left = `${originLeft + (e.clientX - startX)}px`;
@@ -1020,7 +1031,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         const onPointerUp = e => {
-            if (!tab.hasPointerCapture(e.pointerId)) return;
+            if (typeof tab.hasPointerCapture === 'function' && !tab.hasPointerCapture(e.pointerId)) return;
 
             if (isDragging) {
                 // End drag
@@ -1031,7 +1042,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 tab.style.width = '';
                 tab.style.zIndex = '';
 
-                placeholder.replaceWith(tab);
+                if (placeholder) { placeholder.replaceWith(tab); }
                 persistOrder();
             } else if (!e.target.classList.contains('close-btn')) {
                 // Single click
@@ -1039,21 +1050,28 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Cleaning
-            tab.releasePointerCapture(e.pointerId);
+            if (typeof tab.releasePointerCapture === 'function' && typeof tab.hasPointerCapture === 'function' && tab.hasPointerCapture(e.pointerId)) {
+                tab.releasePointerCapture(e.pointerId);
+            }
             isDragging = false;
             placeholder = null;
         };
 
-        const onPointerCancel = () => {
-            if (tab.hasPointerCapture) {
-                if (isDragging && placeholder) {
-                    placeholder.replaceWith(tab);
-                    tab.classList.remove('dragging');
-                    tab.style = '';
-                }
-                isDragging = false;
-                placeholder = null;
+        const onPointerCancel = e => {
+            if (isDragging && placeholder) {
+                placeholder.replaceWith(tab);
+                tab.classList.remove('dragging');
+                tab.style.position = '';
+                tab.style.left = '';
+                tab.style.top = '';
+                tab.style.width = '';
+                tab.style.zIndex = '';
             }
+            if (typeof tab.releasePointerCapture === 'function' && typeof tab.hasPointerCapture === 'function' && tab.hasPointerCapture(e.pointerId)) {
+                tab.releasePointerCapture(e.pointerId);
+            }
+            isDragging = false;
+            placeholder = null;
         };
 
         tab.addEventListener('pointerdown', onPointerDown);
@@ -1091,6 +1109,7 @@ document.addEventListener('DOMContentLoaded', () => {
         let h = getHistory();
         const i = h.findIndex(x => x.id === node._id);
         if (i !== -1) {
+            h[i].name = node.name;
             h[i].panel = panel;
         } else {
             h.unshift({ id: node._id, name: node.name, panel });
@@ -1109,7 +1128,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (node) updateHistory(node, panel ?? 10);
                 return result;
             };
-            gotoDevice._ht = true;
+            window.gotoDevice._ht = true;
         }
 
         if (window.go && !go._ht) {
@@ -1121,15 +1140,31 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 return result;
             };
-            go._ht = true;
+            window.go._ht = true;
         }
     }
 
-    setTimeout(() => {
-        initContainer();
-        hookNavigation();
-        renderTabs();
-    }, 300);
+    function startWhenReady() {
+        let tries = 0;
+        const maxTries = 40;
+        const timer = setInterval(() => {
+            tries++;
+            initContainer();
+            hookNavigation();
+            if (document.getElementById('history-tabs-wrapper')) {
+                renderTabs();
+            }
+
+            const hasContainer = !!document.getElementById('history-tabs-wrapper');
+            const hooksReady = !!(window.gotoDevice?._ht || window.go?._ht);
+            if ((hasContainer && hooksReady) || tries >= maxTries) {
+                clearInterval(timer);
+                renderTabs();
+            }
+        }, 300);
+    }
+
+    startWhenReady();
 })();
 
 
