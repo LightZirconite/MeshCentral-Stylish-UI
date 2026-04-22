@@ -2532,6 +2532,11 @@ div[id$="BackButton"] {
         align-items: center !important;
         vertical-align: middle !important;
     }
+    #deskstatus {
+        display: inline-flex !important;
+        align-items: center !important;
+        vertical-align: middle !important;
+    }
     #mc-stream-status-badge {
         display: inline-flex !important;
         align-items: center !important;

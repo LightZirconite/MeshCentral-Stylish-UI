@@ -499,20 +499,55 @@
 })();
 
 
-// Desktop stream badge near the remote desktop connection status
+// Desktop stream badge near the remote desktop connect status
 (() => {
     const STREAM_BADGE_ID = 'mc-stream-status-badge';
+    const DESKTOP_STATUS_ID = 'deskstatus';
+    const FALLBACK_STATUS_ID = 'p13bottomstatus';
     const DEFAULT_STREAM_LABEL = 'Flux: GDI + DIB | images en tuiles';
+    const WEBRTC_STREAM_LABEL = 'Flux: WebRTC DataChannel | Soft-KVM';
+    const RDP_STREAM_LABEL = 'Flux: RDP';
+    const AMT_STREAM_LABEL = 'Flux: Intel AMT KVM';
     let observer = null;
     let syncQueued = false;
+    let syncTimer = null;
 
-    const getStatusNode = () => document.getElementById('p13bottomstatus');
+    const getStatusNode = () => {
+        return document.getElementById(DESKTOP_STATUS_ID) || document.getElementById(FALLBACK_STATUS_ID);
+    };
 
     const getStreamLabel = () => {
         const customLabel = window.mcDesktopStreamLabel;
-        return (typeof customLabel === 'string' && customLabel.trim() !== '')
-            ? customLabel.trim()
-            : DEFAULT_STREAM_LABEL;
+        if (typeof customLabel === 'string' && customLabel.trim() !== '') {
+            return customLabel.trim();
+        }
+
+        const desktop = window.desktop;
+        const webRtcDesktop = window.webRtcDesktop;
+
+        if ((webRtcDesktop && (webRtcDesktop.webRtcActive || webRtcDesktop.softdesktop || webRtcDesktop.webchannel))
+            || (desktop && desktop.webRtcActive)) {
+            return WEBRTC_STREAM_LABEL;
+        }
+
+        if (desktop && desktop.contype === 4) return RDP_STREAM_LABEL;
+        if (desktop && desktop.contype === 2) return AMT_STREAM_LABEL;
+
+        return DEFAULT_STREAM_LABEL;
+    };
+
+    const shouldShowBadge = (status, statusText) => {
+        if (!status || statusText.length === 0) return false;
+
+        if (status.id === DESKTOP_STATUS_ID) {
+            const desktop = window.desktop;
+            if (desktop && typeof desktop.State === 'number') {
+                return desktop.State !== 0;
+            }
+            return !/^disconnected$/i.test(statusText);
+        }
+
+        return true;
     };
 
     const ensureBadge = () => {
@@ -541,7 +576,7 @@
         if (!status || !badge) return;
 
         const statusText = status.textContent.replace(/\s+/g, ' ').trim();
-        const shouldShow = statusText.length > 0;
+        const shouldShow = shouldShowBadge(status, statusText);
 
         badge.classList.toggle('is-hidden', !shouldShow);
         badge.textContent = getStreamLabel();
@@ -568,6 +603,8 @@
             characterData: true
         });
 
+        if (syncTimer) clearInterval(syncTimer);
+        syncTimer = setInterval(queueSync, 500);
         queueSync();
     };
 
