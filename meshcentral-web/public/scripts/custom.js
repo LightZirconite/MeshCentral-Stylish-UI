@@ -499,6 +499,86 @@
 })();
 
 
+// Desktop stream badge near the remote desktop connection status
+(() => {
+    const STREAM_BADGE_ID = 'mc-stream-status-badge';
+    const DEFAULT_STREAM_LABEL = 'Flux: GDI + DIB | images en tuiles';
+    let observer = null;
+    let syncQueued = false;
+
+    const getStatusNode = () => document.getElementById('p13bottomstatus');
+
+    const getStreamLabel = () => {
+        const customLabel = window.mcDesktopStreamLabel;
+        return (typeof customLabel === 'string' && customLabel.trim() !== '')
+            ? customLabel.trim()
+            : DEFAULT_STREAM_LABEL;
+    };
+
+    const ensureBadge = () => {
+        const status = getStatusNode();
+        if (!status || !status.parentElement) return null;
+
+        let badge = document.getElementById(STREAM_BADGE_ID);
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.id = STREAM_BADGE_ID;
+            badge.title = 'Mode de flux bureau detecte pour cette build Windows.';
+        }
+
+        badge.textContent = getStreamLabel();
+
+        if (badge.parentElement !== status.parentElement || badge.previousElementSibling !== status) {
+            status.insertAdjacentElement('afterend', badge);
+        }
+
+        return badge;
+    };
+
+    const syncBadge = () => {
+        const status = getStatusNode();
+        const badge = ensureBadge();
+        if (!status || !badge) return;
+
+        const statusText = status.textContent.replace(/\s+/g, ' ').trim();
+        const shouldShow = statusText.length > 0;
+
+        badge.classList.toggle('is-hidden', !shouldShow);
+        badge.textContent = getStreamLabel();
+    };
+
+    const queueSync = () => {
+        if (syncQueued) return;
+        syncQueued = true;
+        requestAnimationFrame(() => {
+            syncQueued = false;
+            syncBadge();
+        });
+    };
+
+    const startObserver = () => {
+        const root = document.body || document.documentElement;
+        if (!root) return;
+
+        if (observer) observer.disconnect();
+        observer = new MutationObserver(queueSync);
+        observer.observe(root, {
+            childList: true,
+            subtree: true,
+            characterData: true
+        });
+
+        queueSync();
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', startObserver, { once: true });
+    } else {
+        startObserver();
+    }
+})();
+
+
 
 // === THEME TOGGLE (AUTO / LIGHT / DARK) ===
 document.addEventListener('DOMContentLoaded', () => {

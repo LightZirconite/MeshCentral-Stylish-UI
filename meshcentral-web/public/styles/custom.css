@@ -2528,6 +2528,29 @@ div[id$="BackButton"] {
     #p13bottomstatus {
         color: #666 !important;
         font-size: 12px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        vertical-align: middle !important;
+    }
+    #mc-stream-status-badge {
+        display: inline-flex !important;
+        align-items: center !important;
+        gap: 4px !important;
+        margin-left: 8px !important;
+        padding: 2px 8px !important;
+        border-radius: 999px !important;
+        border: 1px solid rgba(79, 97, 122, 0.18) !important;
+        background: rgba(79, 97, 122, 0.08) !important;
+        color: #4f617a !important;
+        font-size: 11px !important;
+        font-weight: 600 !important;
+        letter-spacing: 0.01em !important;
+        line-height: 1.35 !important;
+        vertical-align: middle !important;
+        white-space: nowrap !important;
+    }
+    #mc-stream-status-badge.is-hidden {
+        display: none !important;
     }
     .fulldesk #termarea3x[style*="height"] {
         height: calc(100vh - 120px) !important;
