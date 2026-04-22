@@ -457,6 +457,22 @@
 // Default Display 1 once per session
 (() => {
     let forced = false;
+    let pendingTimer = null;
+
+    const queueDefaultDisplay = (attempt = 0) => {
+        if (pendingTimer) {
+            clearTimeout(pendingTimer);
+            pendingTimer = null;
+        }
+        if (typeof window.deskSetDisplay === 'function') {
+            try {
+                window.deskSetDisplay(1);
+                return;
+            } catch (_) { }
+        }
+        if (attempt >= 8) return;
+        pendingTimer = setTimeout(() => queueDefaultDisplay(attempt + 1), 250);
+    };
 
     const hook = setInterval(() => {
         if (typeof window.deskDisplayInfo !== "function") return;
@@ -474,7 +490,7 @@
 
             if (!forced && selDisplay === 65535 && displays) {
                 forced = true;
-                setTimeout(() => deskSetDisplay(1), 80);
+                queueDefaultDisplay();
             }
 
             return r;

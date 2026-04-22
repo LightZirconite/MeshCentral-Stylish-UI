@@ -122,7 +122,7 @@ meshcentral-web/
 * **images/** → Contains all custom image assets.
 * **styles/custom.css** → Compiled file that combines all component-level styles.
 * **styles/components/** → Individual CSS files, separated by customization type.
-* **scripts/custom.js** → Empty script file that allows you to add custom JavaScript functionality.
+* **scripts/custom.js** → Custom JavaScript enhancements used by the theme, including desktop fullscreen behavior and other UI improvements.
 
 ---
 
