@@ -1154,6 +1154,78 @@ table.table.table-hover.p3usersTable {
 	background-color: #414141 !important;
 }
 
+.mc-desktop-comfort-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 30px;
+    max-width: 190px;
+    margin: 4px 0 4px 8px;
+    padding: 0 12px;
+    border: 1px solid rgba(148, 163, 184, 0.38);
+    border-radius: 7px;
+    background: rgba(15, 23, 42, 0.72);
+    color: #e5edf8;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1.1;
+    white-space: normal;
+    text-align: center;
+    cursor: pointer;
+    vertical-align: middle;
+    transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
+}
+
+.mc-desktop-comfort-button:hover:not(:disabled) {
+    border-color: rgba(96, 165, 250, 0.62);
+    background: rgba(30, 41, 59, 0.92);
+    color: #ffffff;
+}
+
+.mc-desktop-comfort-button.is-active {
+    border-color: rgba(45, 212, 191, 0.68);
+    background: rgba(20, 184, 166, 0.2);
+    color: #ccfbf1;
+}
+
+.mc-desktop-comfort-button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.mc-auto-clipboard-status,
+.mc-desktop-comfort-message {
+    display: none;
+    align-items: center;
+    max-width: min(100%, 360px);
+    margin: 4px 0 4px 8px;
+    padding: 5px 9px;
+    border: 1px solid rgba(148, 163, 184, 0.34);
+    border-radius: 7px;
+    background: rgba(15, 23, 42, 0.76);
+    color: #cbd5e1;
+    font-size: 12px;
+    font-weight: 650;
+    line-height: 1.25;
+    white-space: normal;
+    vertical-align: middle;
+}
+
+.mc-auto-clipboard-status.is-visible,
+.mc-desktop-comfort-message {
+    display: inline-flex;
+}
+
+.mc-auto-clipboard-status.is-active {
+    border-color: rgba(45, 212, 191, 0.58);
+    color: #ccfbf1;
+}
+
+.mc-desktop-comfort-message.warning {
+    border-color: rgba(251, 191, 36, 0.58);
+    color: #fef3c7;
+}
+
 /* Scrollbars */
 /* Target the scrollbar */
 ::-webkit-scrollbar {
@@ -1705,7 +1777,10 @@ div[id$="BackButton"] {
 }
 
 #loginpanel, #createpanel, #resetpanel, #tokenpanel, #resettokenpanel, #resetpasswordpanel, #checkemailpanel, #waitpushpanel {
-  padding: 50px 70px 18px 70px !important;
+  box-sizing: border-box !important;
+  width: min(92vw, 460px) !important;
+  max-width: 460px !important;
+  padding: 42px clamp(22px, 6vw, 56px) 22px !important;
   margin: 0 !important;
   background: rgba(255, 255, 255, 0.5) !important;
   backdrop-filter: blur(10px) !important;
@@ -1743,19 +1818,21 @@ div[id$="BackButton"] {
   background: rgba(26, 26, 46, 0.8) !important;
   padding: 8px 16px !important;
   border-radius: 8px !important;
-  white-space: nowrap !important;
+  white-space: normal !important;
+  width: max-content !important;
+  max-width: calc(100vw - 32px) !important;
 }
 
 #loginpanelform, #createpanel form, #resetpanel form, #tokenpanel form, #resettokenpanel form, #resetpasswordpanel form, #checkemailpanel form, #waitpushpanel form {
   display: flex;
   flex-direction: column !important;
-  gap: 20px !important;
+  gap: 16px !important;
 }
 
 #loginuserpassdiv table, #createpanel table, #resetpanel table, #tokenpanel table, #resettokenpanel table, #resetpasswordpanel table, #checkemailpanel table, #waitpushpanel table {
   display: flex;
   flex-direction: column !important;
-  gap: 40px !important;
+  gap: 14px !important;
   width: 100% !important;
 }
 
@@ -1766,6 +1843,7 @@ div[id$="BackButton"] {
 #loginuserpassdiv table td, #createpanel table td, #resetpanel table td, #tokenpanel table td, #resettokenpanel table td, #resetpasswordpanel table td, #checkemailpanel table td, #waitpushpanel table td {
   display: block;
   width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 #loginpanel #password {
@@ -1908,7 +1986,9 @@ div[id$="BackButton"] {
 }
 
 #body.arg_hide.login #authStrategies a {
-    display: ruby;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
 }
 
 #body.arg_hide.login #authStrategies a {
@@ -2010,9 +2090,17 @@ div[id$="BackButton"] {
 }
 
 #body.arg_hide.login #passwordPolicyCallout, #body.arg_hide.login #rpasswordPolicyCallout {
-    width: 140px;
-	background-color: #747474;
-    font-size: 13px;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 8px 0 0 !important;
+    padding: 10px 12px !important;
+	background-color: rgba(36, 47, 64, 0.88) !important;
+    border-radius: 10px !important;
+    color: #fff !important;
+    font-size: 13px !important;
+    line-height: 1.35 !important;
+    white-space: normal !important;
 }
 
 #body.arg_hide.login input[type="button" i]:disabled {
@@ -2523,6 +2611,7 @@ div[id$="BackButton"] {
     #p13toolbarBottom td:has(#p13bottomstatus) {
         background-color: transparent !important;
         background: none !important;
+        line-height: 1.4 !important;
     }
 
     #p13bottomstatus {
@@ -2540,8 +2629,7 @@ div[id$="BackButton"] {
     #mc-stream-status-badge {
         display: inline-flex !important;
         align-items: center !important;
-        gap: 4px !important;
-        margin-left: 8px !important;
+        margin-left: 10px !important;
         padding: 2px 8px !important;
         border-radius: 999px !important;
         border: 1px solid rgba(79, 97, 122, 0.18) !important;
@@ -2549,10 +2637,11 @@ div[id$="BackButton"] {
         color: #4f617a !important;
         font-size: 11px !important;
         font-weight: 600 !important;
-        letter-spacing: 0.01em !important;
+        letter-spacing: 0 !important;
         line-height: 1.35 !important;
         vertical-align: middle !important;
-        white-space: nowrap !important;
+        white-space: normal !important;
+        max-width: min(42vw, 260px) !important;
     }
     #mc-stream-status-badge.is-hidden {
         display: none !important;

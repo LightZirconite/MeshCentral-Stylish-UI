@@ -29,7 +29,10 @@
 }
 
 #loginpanel, #createpanel, #resetpanel, #tokenpanel, #resettokenpanel, #resetpasswordpanel, #checkemailpanel, #waitpushpanel {
-  padding: 50px 70px 18px 70px !important;
+  box-sizing: border-box !important;
+  width: min(92vw, 460px) !important;
+  max-width: 460px !important;
+  padding: 42px clamp(22px, 6vw, 56px) 22px !important;
   margin: 0 !important;
   background: rgba(255, 255, 255, 0.5) !important;
   backdrop-filter: blur(10px) !important;
@@ -67,19 +70,21 @@
   background: rgba(26, 26, 46, 0.8) !important;
   padding: 8px 16px !important;
   border-radius: 8px !important;
-  white-space: nowrap !important;
+  white-space: normal !important;
+  width: max-content !important;
+  max-width: calc(100vw - 32px) !important;
 }
 
 #loginpanelform, #createpanel form, #resetpanel form, #tokenpanel form, #resettokenpanel form, #resetpasswordpanel form, #checkemailpanel form, #waitpushpanel form {
   display: flex;
   flex-direction: column !important;
-  gap: 20px !important;
+  gap: 16px !important;
 }
 
 #loginuserpassdiv table, #createpanel table, #resetpanel table, #tokenpanel table, #resettokenpanel table, #resetpasswordpanel table, #checkemailpanel table, #waitpushpanel table {
   display: flex;
   flex-direction: column !important;
-  gap: 40px !important;
+  gap: 14px !important;
   width: 100% !important;
 }
 
@@ -90,6 +95,7 @@
 #loginuserpassdiv table td, #createpanel table td, #resetpanel table td, #tokenpanel table td, #resettokenpanel table td, #resetpasswordpanel table td, #checkemailpanel table td, #waitpushpanel table td {
   display: block;
   width: 100% !important;
+  box-sizing: border-box !important;
 }
 
 #loginpanel #password {
@@ -232,7 +238,9 @@
 }
 
 #body.arg_hide.login #authStrategies a {
-    display: ruby;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
 }
 
 #body.arg_hide.login #authStrategies a {
@@ -334,9 +342,17 @@
 }
 
 #body.arg_hide.login #passwordPolicyCallout, #body.arg_hide.login #rpasswordPolicyCallout {
-    width: 140px;
-	background-color: #747474;
-    font-size: 13px;
+    box-sizing: border-box !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 8px 0 0 !important;
+    padding: 10px 12px !important;
+	background-color: rgba(36, 47, 64, 0.88) !important;
+    border-radius: 10px !important;
+    color: #fff !important;
+    font-size: 13px !important;
+    line-height: 1.35 !important;
+    white-space: normal !important;
 }
 
 #body.arg_hide.login input[type="button" i]:disabled {

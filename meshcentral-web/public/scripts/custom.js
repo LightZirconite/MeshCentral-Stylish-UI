@@ -504,8 +504,8 @@
     const STREAM_BADGE_ID = 'mc-stream-status-badge';
     const DESKTOP_STATUS_ID = 'deskstatus';
     const FALLBACK_STATUS_ID = 'p13bottomstatus';
-    const DEFAULT_STREAM_LABEL = 'Flux: GDI + DIB | images en tuiles';
-    const WEBRTC_STREAM_LABEL = 'Flux: WebRTC DataChannel | Soft-KVM';
+    const DEFAULT_STREAM_LABEL = 'Flux: images en tuiles';
+    const WEBRTC_STREAM_LABEL = 'Flux: WebRTC actif';
     const RDP_STREAM_LABEL = 'Flux: RDP';
     const AMT_STREAM_LABEL = 'Flux: Intel AMT KVM';
     let observer = null;
@@ -516,6 +516,25 @@
         return document.getElementById(DESKTOP_STATUS_ID) || document.getElementById(FALLBACK_STATUS_ID);
     };
 
+    const isTruthyState = (value) => value === true || value === 1 || value === '1' || value === 'true';
+
+    const hasActiveWebRtc = () => {
+        const desktop = window.desktop;
+        const webRtcDesktop = window.webRtcDesktop;
+        const candidates = [desktop, webRtcDesktop].filter(Boolean);
+
+        return candidates.some((candidate) => {
+            return isTruthyState(candidate.webRtcActive)
+                || isTruthyState(candidate.webrtcActive)
+                || isTruthyState(candidate.rtcActive)
+                || isTruthyState(candidate.webRtcConnected)
+                || isTruthyState(candidate.connected)
+                || (candidate.webchannel && isTruthyState(candidate.webchannel.open))
+                || (candidate.webchannel && candidate.webchannel.readyState === 'open')
+                || (candidate.channel && candidate.channel.readyState === 'open');
+        });
+    };
+
     const getStreamLabel = () => {
         const customLabel = window.mcDesktopStreamLabel;
         if (typeof customLabel === 'string' && customLabel.trim() !== '') {
@@ -523,15 +542,10 @@
         }
 
         const desktop = window.desktop;
-        const webRtcDesktop = window.webRtcDesktop;
-
-        if ((webRtcDesktop && (webRtcDesktop.webRtcActive || webRtcDesktop.softdesktop || webRtcDesktop.webchannel))
-            || (desktop && desktop.webRtcActive)) {
-            return WEBRTC_STREAM_LABEL;
-        }
 
         if (desktop && desktop.contype === 4) return RDP_STREAM_LABEL;
         if (desktop && desktop.contype === 2) return AMT_STREAM_LABEL;
+        if (hasActiveWebRtc()) return WEBRTC_STREAM_LABEL;
 
         return DEFAULT_STREAM_LABEL;
     };
@@ -558,7 +572,7 @@
         if (!badge) {
             badge = document.createElement('span');
             badge.id = STREAM_BADGE_ID;
-            badge.title = 'Mode de flux bureau detecte pour cette build Windows.';
+            badge.title = 'Type de flux detecte. MeshCentral utilise souvent des images en tuiles pour le bureau distant.';
         }
 
         badge.textContent = getStreamLabel();
@@ -1300,6 +1314,338 @@ document.addEventListener('DOMContentLoaded', () => {
     startWhenReady();
 })();
 
+
+// ====== Desktop comfort controls ======
+(function () {
+    'use strict';
+
+    const AUTO_CLIPBOARD_PREFIX = 'mc:autoClipboard:';
+    const AUTO_CLIPBOARD_BUTTON_ID = 'mc-auto-clipboard-toggle';
+    const AUTO_CLIPBOARD_STATUS_ID = 'mc-auto-clipboard-status';
+    const ALT_SESSION_BUTTON_ID = 'mc-alt-session-button';
+    const CLIPBOARD_MAX_CHARS = 64 * 1024;
+    const CLIPBOARD_POLL_MS = 1200;
+    const CLIPBOARD_MIN_SEND_MS = 750;
+
+    let clipboardTimer = null;
+    let lastClipboardText = '';
+    let lastClipboardSendAt = 0;
+    let lastClipboardNodeId = null;
+    let comfortObserver = null;
+
+    function getCurrentNodeId() {
+        if (window.currentNode && window.currentNode._id) return window.currentNode._id;
+
+        const nodeIdInput = document.querySelector('[name="nodeid"], #nodeid');
+        if (nodeIdInput && nodeIdInput.value) return nodeIdInput.value;
+
+        try {
+            const params = new URLSearchParams(window.location.search);
+            return params.get('nodeid') || params.get('node') || null;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    function isAutoClipboardEnabled(nodeId) {
+        return !!nodeId && localStorage.getItem(AUTO_CLIPBOARD_PREFIX + nodeId) === '1';
+    }
+
+    function setAutoClipboardEnabled(nodeId, enabled) {
+        if (!nodeId) return;
+        const storageKey = AUTO_CLIPBOARD_PREFIX + nodeId;
+        if (enabled) {
+            localStorage.setItem(storageKey, '1');
+        } else {
+            localStorage.removeItem(storageKey);
+        }
+        lastClipboardText = '';
+        updateDesktopComfortUi();
+    }
+
+    function findDesktopToolbar() {
+        return document.getElementById('deskToolsAreaTop') ||
+            document.getElementById('DeskTools') ||
+            document.querySelector('#p11 .areaHead') ||
+            document.getElementById('p11title') ||
+            document.getElementById('deskarea1') ||
+            document.getElementById('p11');
+    }
+
+    function findConnectButton() {
+        return document.getElementById('connectbutton1') ||
+            document.querySelector('[onclick*="connectDesktop"]') ||
+            Array.from(document.querySelectorAll('button,input[type="button"],a')).find(function (element) {
+                const text = ((element.value || '') + ' ' + (element.textContent || '')).trim().toLowerCase();
+                return text === 'connect' || text === 'se connecter';
+            });
+    }
+
+    function showComfortMessage(message, kind) {
+        const existing = document.getElementById('mc-desktop-comfort-message');
+        if (existing) existing.remove();
+
+        const host = findDesktopToolbar() || document.body;
+        const messageNode = document.createElement('span');
+        messageNode.id = 'mc-desktop-comfort-message';
+        messageNode.className = 'mc-desktop-comfort-message ' + (kind || 'info');
+        messageNode.textContent = message;
+        host.appendChild(messageNode);
+
+        window.setTimeout(function () {
+            if (messageNode.parentNode) messageNode.remove();
+        }, 4200);
+    }
+
+    function ensureAutoClipboardButton() {
+        if (document.getElementById(AUTO_CLIPBOARD_BUTTON_ID)) return;
+
+        const toolbar = findDesktopToolbar();
+        if (!toolbar) return;
+
+        const button = document.createElement('button');
+        button.id = AUTO_CLIPBOARD_BUTTON_ID;
+        button.type = 'button';
+        button.className = 'mc-desktop-comfort-button';
+        button.textContent = 'Clipboard auto';
+        button.title = 'Activer le presse-papier automatique pour cet appareil';
+        button.addEventListener('click', function () {
+            const nodeId = getCurrentNodeId();
+            if (!nodeId) {
+                showComfortMessage('Aucun appareil selectionne pour le presse-papier automatique.', 'warning');
+                return;
+            }
+            const nextState = !isAutoClipboardEnabled(nodeId);
+            setAutoClipboardEnabled(nodeId, nextState);
+            showComfortMessage(nextState ? 'Presse-papier automatique active pour cet appareil.' : 'Presse-papier automatique desactive pour cet appareil.', 'info');
+        });
+
+        toolbar.appendChild(button);
+    }
+
+    function ensureAutoClipboardStatus() {
+        if (document.getElementById(AUTO_CLIPBOARD_STATUS_ID)) return;
+
+        const statusHost = document.getElementById('deskstatus') ||
+            document.getElementById('p13bottomstatus') ||
+            document.getElementById('deskarea1') ||
+            findDesktopToolbar();
+
+        if (!statusHost) return;
+
+        const status = document.createElement('span');
+        status.id = AUTO_CLIPBOARD_STATUS_ID;
+        status.className = 'mc-auto-clipboard-status';
+        status.textContent = 'Clipboard auto actif';
+        statusHost.appendChild(status);
+    }
+
+    function ensureAlternativeSessionButton() {
+        if (document.getElementById(ALT_SESSION_BUTTON_ID)) return;
+
+        const connectButton = findConnectButton();
+        if (!connectButton || !connectButton.parentNode) return;
+
+        const button = document.createElement('button');
+        button.id = ALT_SESSION_BUTTON_ID;
+        button.type = 'button';
+        button.className = 'mc-desktop-comfort-button mc-alt-session-button';
+        button.textContent = 'Session alternative';
+        button.title = 'Ouvrir une autre session quand l agent et le systeme le permettent';
+        button.addEventListener('click', function () {
+            if (tryOpenExistingSessionPicker()) return;
+            showComfortMessage('Session alternative non disponible sur cet appareil.', 'warning');
+        });
+
+        connectButton.parentNode.insertBefore(button, connectButton.nextSibling);
+    }
+
+    function tryOpenExistingSessionPicker() {
+        const knownSessionFunctions = [
+            'showDesktopSessions',
+            'showDesktopSessionSelect',
+            'deskShowSessionSelect',
+            'desktopShowSessionSelect',
+            'showKvmSessions',
+            'showVirtualSessions'
+        ];
+
+        for (const functionName of knownSessionFunctions) {
+            if (typeof window[functionName] === 'function') {
+                window[functionName]();
+                return true;
+            }
+        }
+
+        const sessionButton = Array.from(document.querySelectorAll('button,input[type="button"],a')).find(function (element) {
+            if (element.id === ALT_SESSION_BUTTON_ID) return false;
+            const text = [
+                element.id,
+                element.name,
+                element.title,
+                element.value,
+                element.textContent
+            ].join(' ').toLowerCase();
+            return text.includes('session') && (text.includes('desktop') || text.includes('bureau') || text.includes('kvm'));
+        });
+
+        if (sessionButton) {
+            sessionButton.click();
+            return true;
+        }
+
+        return false;
+    }
+
+    function enableNativeAutomaticClipboardIfPresent() {
+        const candidates = Array.from(document.querySelectorAll('input[type="checkbox"],input[type="button"],button,a'));
+        const nativeControl = candidates.find(function (element) {
+            const text = [
+                element.id,
+                element.name,
+                element.title,
+                element.value,
+                element.textContent
+            ].join(' ').toLowerCase();
+            return text.includes('automatic clipboard') || text.includes('auto clipboard') || text.includes('autoclipboard');
+        });
+
+        if (!nativeControl) return false;
+
+        if (nativeControl.matches('input[type="checkbox"]')) {
+            if (!nativeControl.checked) nativeControl.click();
+            return true;
+        }
+
+        if (nativeControl.getAttribute('aria-pressed') === 'false' || nativeControl.classList.contains('off')) {
+            nativeControl.click();
+            return true;
+        }
+
+        return false;
+    }
+
+    function isDesktopConnected() {
+        if (window.desktop && typeof window.desktop.State === 'number') return window.desktop.State !== 0;
+        const connectButton = findConnectButton();
+        if (!connectButton) return false;
+        const text = ((connectButton.value || '') + ' ' + (connectButton.textContent || '')).toLowerCase();
+        return text.includes('disconnect') || text.includes('deconnect') || text.includes('deconnecter');
+    }
+
+    function sendRemoteClipboardText(nodeId, text) {
+        if (!nodeId || !text || text.length > CLIPBOARD_MAX_CHARS) return false;
+
+        if (window.meshserver && typeof window.meshserver.send === 'function') {
+            window.meshserver.send({ action: 'msg', type: 'setclip', nodeid: nodeId, data: text });
+            return true;
+        }
+
+        if (typeof window.sendClipText === 'function') {
+            window.sendClipText(text);
+            return true;
+        }
+
+        return false;
+    }
+
+    async function pollLocalClipboard() {
+        const nodeId = getCurrentNodeId();
+        if (!nodeId || !isAutoClipboardEnabled(nodeId) || document.hidden || !document.hasFocus()) return;
+        if (!isDesktopConnected()) return;
+        if (!navigator.clipboard || typeof navigator.clipboard.readText !== 'function') return;
+
+        try {
+            const text = await navigator.clipboard.readText();
+            if (!text || text.length > CLIPBOARD_MAX_CHARS) return;
+
+            const now = Date.now();
+            if (nodeId === lastClipboardNodeId && text === lastClipboardText) return;
+            if ((now - lastClipboardSendAt) < CLIPBOARD_MIN_SEND_MS) return;
+
+            if (sendRemoteClipboardText(nodeId, text)) {
+                lastClipboardNodeId = nodeId;
+                lastClipboardText = text;
+                lastClipboardSendAt = now;
+            }
+        } catch (_) {
+            stopAutoClipboardPolling();
+            updateDesktopComfortUi('permission');
+        }
+    }
+
+    function startAutoClipboardPolling() {
+        if (clipboardTimer) return;
+        enableNativeAutomaticClipboardIfPresent();
+        clipboardTimer = window.setInterval(pollLocalClipboard, CLIPBOARD_POLL_MS);
+        pollLocalClipboard();
+    }
+
+    function stopAutoClipboardPolling() {
+        if (!clipboardTimer) return;
+        window.clearInterval(clipboardTimer);
+        clipboardTimer = null;
+    }
+
+    function updateDesktopComfortUi(statusMode) {
+        ensureAutoClipboardButton();
+        ensureAutoClipboardStatus();
+        ensureAlternativeSessionButton();
+
+        const nodeId = getCurrentNodeId();
+        const enabled = isAutoClipboardEnabled(nodeId);
+        const connected = isDesktopConnected();
+
+        const button = document.getElementById(AUTO_CLIPBOARD_BUTTON_ID);
+        if (button) {
+            button.classList.toggle('is-active', enabled);
+            button.disabled = !nodeId;
+            button.textContent = enabled ? 'Clipboard auto ON' : 'Clipboard auto';
+        }
+
+        const status = document.getElementById(AUTO_CLIPBOARD_STATUS_ID);
+        if (status) {
+            status.classList.toggle('is-visible', enabled);
+            status.classList.toggle('is-active', enabled && connected && statusMode !== 'permission');
+            if (statusMode === 'permission') {
+                status.textContent = 'Clipboard auto bloque par le navigateur';
+            } else {
+                status.textContent = connected ? 'Clipboard auto actif' : 'Clipboard auto en attente';
+            }
+        }
+
+        if (enabled && connected) {
+            startAutoClipboardPolling();
+        } else {
+            stopAutoClipboardPolling();
+        }
+    }
+
+    function scheduleDesktopComfortRefresh() {
+        window.clearTimeout(scheduleDesktopComfortRefresh.timer);
+        scheduleDesktopComfortRefresh.timer = window.setTimeout(updateDesktopComfortUi, 200);
+    }
+
+    function initDesktopComfortControls() {
+        updateDesktopComfortUi();
+
+        if (!comfortObserver) {
+            comfortObserver = new MutationObserver(scheduleDesktopComfortRefresh);
+            comfortObserver.observe(document.body, { childList: true, subtree: true });
+        }
+
+        document.addEventListener('visibilitychange', updateDesktopComfortUi);
+        window.addEventListener('focus', updateDesktopComfortUi);
+        window.addEventListener('blur', updateDesktopComfortUi);
+        window.setInterval(updateDesktopComfortUi, 2500);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initDesktopComfortControls);
+    } else {
+        initDesktopComfortControls();
+    }
+})();
 
 // ====== iOS App ======
 (function () {

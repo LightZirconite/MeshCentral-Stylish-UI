@@ -111,11 +111,40 @@
     #p13toolbarBottom td:has(#p13bottomstatus) {
         background-color: transparent !important;
         background: none !important;
+        line-height: 1.4 !important;
     }
 
     #p13bottomstatus {
         color: #666 !important;
         font-size: 12px !important;
+        display: inline-flex !important;
+        align-items: center !important;
+        vertical-align: middle !important;
+    }
+    #deskstatus {
+        display: inline-flex !important;
+        align-items: center !important;
+        vertical-align: middle !important;
+    }
+    #mc-stream-status-badge {
+        display: inline-flex !important;
+        align-items: center !important;
+        margin-left: 10px !important;
+        padding: 2px 8px !important;
+        border-radius: 999px !important;
+        border: 1px solid rgba(79, 97, 122, 0.18) !important;
+        background: rgba(79, 97, 122, 0.08) !important;
+        color: #4f617a !important;
+        font-size: 11px !important;
+        font-weight: 600 !important;
+        letter-spacing: 0 !important;
+        line-height: 1.35 !important;
+        vertical-align: middle !important;
+        white-space: normal !important;
+        max-width: min(42vw, 260px) !important;
+    }
+    #mc-stream-status-badge.is-hidden {
+        display: none !important;
     }
     .fulldesk #termarea3x[style*="height"] {
         height: calc(100vh - 120px) !important;
