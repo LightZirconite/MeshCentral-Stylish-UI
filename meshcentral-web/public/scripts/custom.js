@@ -1323,14 +1323,21 @@ document.addEventListener('DOMContentLoaded', () => {
     const AUTO_CLIPBOARD_BUTTON_ID = 'mc-auto-clipboard-toggle';
     const AUTO_CLIPBOARD_STATUS_ID = 'mc-auto-clipboard-status';
     const ALT_SESSION_BUTTON_ID = 'mc-alt-session-button';
+    const ALT_SESSION_STATUS_ID = 'mc-alt-session-status';
+    const ALT_SESSION_DIAG_ID = 'mc-alt-session-diagnostics';
     const CLIPBOARD_MAX_CHARS = 64 * 1024;
-    const CLIPBOARD_POLL_MS = 1200;
-    const CLIPBOARD_MIN_SEND_MS = 750;
+    const CLIPBOARD_POLL_MS = 500;
+    const CLIPBOARD_REMOTE_POLL_MS = 1200;
+    const CLIPBOARD_MIN_SEND_MS = 300;
 
     let clipboardTimer = null;
+    let remoteClipboardTimer = null;
     let lastClipboardText = '';
     let lastClipboardSendAt = 0;
     let lastClipboardNodeId = null;
+    let lastRemoteClipboardText = '';
+    let lastRemoteClipboardRequestAt = 0;
+    let incomingClipboardHookTarget = null;
     let comfortObserver = null;
 
     function getCurrentNodeId() {
@@ -1446,21 +1453,44 @@ document.addEventListener('DOMContentLoaded', () => {
         const connectButton = findConnectButton();
         if (!connectButton || !connectButton.parentNode) return;
 
-        const button = document.createElement('button');
+        const button = document.createElement(connectButton.tagName === 'INPUT' ? 'input' : 'button');
         button.id = ALT_SESSION_BUTTON_ID;
         button.type = 'button';
-        button.className = 'mc-desktop-comfort-button mc-alt-session-button';
-        button.textContent = 'Session alternative';
-        button.title = 'Ouvrir une autre session quand l agent et le systeme le permettent';
+        button.className = ((connectButton.className || 'btn-primary') + ' mc-alt-session-button').trim();
+        if (!/\bbtn-primary\b/.test(button.className)) button.className += ' btn-primary';
+        if (button.tagName === 'INPUT') {
+            button.value = 'Session alternative';
+        } else {
+            button.textContent = 'Session alternative';
+        }
+        button.title = 'Session alternative non disponible sur cet appareil';
         button.addEventListener('click', function () {
             if (tryOpenExistingSessionPicker()) return;
-            showComfortMessage('Session alternative non disponible sur cet appareil.', 'warning');
+            requestAlternativeDesktopCapabilities();
+            showAlternativeSessionDiagnostics();
         });
 
         connectButton.parentNode.insertBefore(button, connectButton.nextSibling);
     }
 
-    function tryOpenExistingSessionPicker() {
+    function ensureAlternativeSessionStatus() {
+        if (document.getElementById(ALT_SESSION_STATUS_ID)) return;
+
+        const statusHost = document.getElementById('deskstatus') ||
+            document.getElementById('p13bottomstatus') ||
+            document.getElementById('deskarea1') ||
+            findDesktopToolbar();
+
+        if (!statusHost) return;
+
+        const status = document.createElement('span');
+        status.id = ALT_SESSION_STATUS_ID;
+        status.className = 'mc-alt-session-status';
+        status.textContent = 'Session principale';
+        statusHost.appendChild(status);
+    }
+
+    function findExistingSessionEntryPoint() {
         const knownSessionFunctions = [
             'showDesktopSessions',
             'showDesktopSessionSelect',
@@ -1472,8 +1502,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         for (const functionName of knownSessionFunctions) {
             if (typeof window[functionName] === 'function') {
-                window[functionName]();
-                return true;
+                return { type: 'function', value: window[functionName] };
             }
         }
 
@@ -1489,12 +1518,116 @@ document.addEventListener('DOMContentLoaded', () => {
             return text.includes('session') && (text.includes('desktop') || text.includes('bureau') || text.includes('kvm'));
         });
 
+        if (sessionButton) return { type: 'button', value: sessionButton };
+        return null;
+    }
+
+    function tryOpenExistingSessionPicker() {
+        const entryPoint = findExistingSessionEntryPoint();
+        if (!entryPoint) return false;
+
+        if (entryPoint.type === 'function') {
+            entryPoint.value();
+            return true;
+        }
+
+        const sessionButton = entryPoint.value;
         if (sessionButton) {
             sessionButton.click();
             return true;
         }
 
         return false;
+    }
+
+    function getNodePlatformHint() {
+        const node = window.currentNode || {};
+        const raw = [
+            node.osdesc,
+            node.os,
+            node.platform,
+            node.agent && node.agent.osdesc,
+            node.agent && node.agent.platform,
+            node.agent && node.agent.name
+        ].filter(Boolean).join(' ').toLowerCase();
+
+        if (raw.includes('windows') || raw.includes('win32')) return 'win32';
+        if (raw.includes('linux')) return 'linux';
+        if (raw.includes('darwin') || raw.includes('mac')) return 'darwin';
+        return 'unknown';
+    }
+
+    function getAlternativeSessionState() {
+        if (findExistingSessionEntryPoint()) {
+            return {
+                state: 'available',
+                label: 'Session alternative disponible',
+                detail: 'Une entree de session alternative existe deja dans cette installation MeshCentral.'
+            };
+        }
+
+        const platform = getNodePlatformHint();
+        if (platform === 'win32') {
+            return {
+                state: 'limited',
+                label: 'Alternative limitee',
+                detail: 'Windows 10/11 classique ne fournit pas un second bureau graphique complet et fiable dans la meme session. Le fallback propre est PowerShell, fichiers, presse-papier et navigateur/profil isole.'
+            };
+        }
+
+        if (platform === 'linux') {
+            return {
+                state: 'setup',
+                label: 'Verification Linux requise',
+                detail: 'Linux peut ouvrir une session Xvfb si xvfb-run et un environnement GNOME/LXDE/XFCE sont disponibles.'
+            };
+        }
+
+        return {
+            state: 'unknown',
+            label: 'Session alternative a verifier',
+            detail: 'Le serveur complet doit demander les capacites a l agent alternative-desktop.'
+        };
+    }
+
+    function requestAlternativeDesktopCapabilities() {
+        const nodeId = getCurrentNodeId();
+        if (!nodeId || !window.meshserver || typeof window.meshserver.send !== 'function') return false;
+
+        window.meshserver.send({
+            action: 'msg',
+            type: 'alternativeDesktop',
+            op: 'capabilities',
+            nodeid: nodeId
+        });
+        return true;
+    }
+
+    function showAlternativeSessionDiagnostics() {
+        const existing = document.getElementById(ALT_SESSION_DIAG_ID);
+        if (existing) existing.remove();
+
+        const state = getAlternativeSessionState();
+        const host = findDesktopToolbar() || document.body;
+        const panel = document.createElement('div');
+        panel.id = ALT_SESSION_DIAG_ID;
+        panel.className = 'mc-alt-session-diagnostics ' + state.state;
+
+        const title = document.createElement('strong');
+        title.textContent = state.label;
+        panel.appendChild(title);
+
+        const detail = document.createElement('span');
+        detail.textContent = state.detail;
+        panel.appendChild(detail);
+
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.textContent = 'OK';
+        close.addEventListener('click', function () { panel.remove(); });
+        panel.appendChild(close);
+
+        host.appendChild(panel);
     }
 
     function enableNativeAutomaticClipboardIfPresent() {
@@ -1549,6 +1682,86 @@ document.addEventListener('DOMContentLoaded', () => {
         return false;
     }
 
+    function requestRemoteClipboardText(nodeId) {
+        if (!nodeId || !window.meshserver || typeof window.meshserver.send !== 'function') return false;
+
+        const now = Date.now();
+        if ((now - lastRemoteClipboardRequestAt) < CLIPBOARD_REMOTE_POLL_MS) return false;
+
+        window.meshserver.send({ action: 'msg', type: 'getclip', nodeid: nodeId });
+        lastRemoteClipboardRequestAt = now;
+        return true;
+    }
+
+    function normalizeIncomingMessage(raw) {
+        if (!raw) return null;
+        if (raw.data != null) raw = raw.data;
+        if (typeof raw === 'string') {
+            try { return JSON.parse(raw); } catch (_) { return null; }
+        }
+        return typeof raw === 'object' ? raw : null;
+    }
+
+    function findClipboardPayload(message) {
+        const candidates = [message, message && message.msg, message && message.event, message && message.data];
+        for (const candidate of candidates) {
+            if (!candidate || typeof candidate !== 'object') continue;
+            const type = (candidate.type || candidate.action || '').toString().toLowerCase();
+            if (type !== 'getclip' && type !== 'clipboard' && type !== 'clip') continue;
+
+            const data = candidate.data != null ? candidate.data : candidate.value;
+            if (typeof data === 'string') return data;
+        }
+        return null;
+    }
+
+    async function receiveRemoteClipboardText(text) {
+        const nodeId = getCurrentNodeId();
+        if (!nodeId || !isAutoClipboardEnabled(nodeId) || !isDesktopConnected()) return;
+        if (!text || text.length > CLIPBOARD_MAX_CHARS || text === lastRemoteClipboardText) return;
+        if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') return;
+
+        try {
+            await navigator.clipboard.writeText(text);
+            lastRemoteClipboardText = text;
+            lastClipboardNodeId = nodeId;
+            lastClipboardText = text;
+            lastClipboardSendAt = Date.now();
+        } catch (_) {
+            stopAutoClipboardPolling();
+            updateDesktopComfortUi('permission');
+        }
+    }
+
+    function handleIncomingClipboardMessage(raw) {
+        const message = normalizeIncomingMessage(raw);
+        const text = findClipboardPayload(message);
+        if (text != null) receiveRemoteClipboardText(text);
+    }
+
+    function installIncomingClipboardHook() {
+        const server = window.meshserver;
+        if (!server || incomingClipboardHookTarget === server) return;
+
+        incomingClipboardHookTarget = server;
+
+        if (typeof server.addEventListener === 'function') {
+            server.addEventListener('message', handleIncomingClipboardMessage);
+        }
+
+        if (typeof server.on === 'function') {
+            try { server.on('message', handleIncomingClipboardMessage); } catch (_) { }
+        }
+
+        const originalOnMessage = server.onmessage;
+        server.onmessage = function () {
+            handleIncomingClipboardMessage(arguments[0]);
+            if (typeof originalOnMessage === 'function') {
+                return originalOnMessage.apply(this, arguments);
+            }
+        };
+    }
+
     async function pollLocalClipboard() {
         const nodeId = getCurrentNodeId();
         if (!nodeId || !isAutoClipboardEnabled(nodeId) || document.hidden || !document.hasFocus()) return;
@@ -1574,27 +1787,45 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    function pollRemoteClipboard() {
+        const nodeId = getCurrentNodeId();
+        if (!nodeId || !isAutoClipboardEnabled(nodeId) || document.hidden || !document.hasFocus()) return;
+        if (!isDesktopConnected()) return;
+        installIncomingClipboardHook();
+        requestRemoteClipboardText(nodeId);
+    }
+
     function startAutoClipboardPolling() {
         if (clipboardTimer) return;
         enableNativeAutomaticClipboardIfPresent();
+        installIncomingClipboardHook();
         clipboardTimer = window.setInterval(pollLocalClipboard, CLIPBOARD_POLL_MS);
+        remoteClipboardTimer = window.setInterval(pollRemoteClipboard, CLIPBOARD_REMOTE_POLL_MS);
         pollLocalClipboard();
+        pollRemoteClipboard();
     }
 
     function stopAutoClipboardPolling() {
-        if (!clipboardTimer) return;
-        window.clearInterval(clipboardTimer);
-        clipboardTimer = null;
+        if (clipboardTimer) {
+            window.clearInterval(clipboardTimer);
+            clipboardTimer = null;
+        }
+        if (remoteClipboardTimer) {
+            window.clearInterval(remoteClipboardTimer);
+            remoteClipboardTimer = null;
+        }
     }
 
     function updateDesktopComfortUi(statusMode) {
         ensureAutoClipboardButton();
         ensureAutoClipboardStatus();
         ensureAlternativeSessionButton();
+        ensureAlternativeSessionStatus();
 
         const nodeId = getCurrentNodeId();
         const enabled = isAutoClipboardEnabled(nodeId);
         const connected = isDesktopConnected();
+        const alternativeState = getAlternativeSessionState();
 
         const button = document.getElementById(AUTO_CLIPBOARD_BUTTON_ID);
         if (button) {
@@ -1610,8 +1841,23 @@ document.addEventListener('DOMContentLoaded', () => {
             if (statusMode === 'permission') {
                 status.textContent = 'Clipboard auto bloque par le navigateur';
             } else {
-                status.textContent = connected ? 'Clipboard auto actif' : 'Clipboard auto en attente';
+                status.textContent = connected ? 'Clipboard auto bidirectionnel' : 'Clipboard auto en attente';
             }
+        }
+
+        const altSessionButton = document.getElementById(ALT_SESSION_BUTTON_ID);
+        if (altSessionButton) {
+            const hasAlternativeSession = alternativeState.state === 'available';
+            altSessionButton.disabled = !nodeId;
+            altSessionButton.title = hasAlternativeSession ?
+                'Ouvrir une session alternative disponible sur cet appareil' :
+                alternativeState.detail;
+        }
+
+        const altSessionStatus = document.getElementById(ALT_SESSION_STATUS_ID);
+        if (altSessionStatus) {
+            altSessionStatus.textContent = connected ? alternativeState.label : 'Session principale';
+            altSessionStatus.className = 'mc-alt-session-status ' + alternativeState.state;
         }
 
         if (enabled && connected) {

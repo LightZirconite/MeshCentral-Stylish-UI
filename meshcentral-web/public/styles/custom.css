@@ -1197,7 +1197,8 @@ table.table.table-hover.p3usersTable {
 .mc-desktop-comfort-message {
     display: none;
     align-items: center;
-    max-width: min(100%, 360px);
+    box-sizing: border-box;
+    max-width: min(100%, 260px);
     margin: 4px 0 4px 8px;
     padding: 5px 9px;
     border: 1px solid rgba(148, 163, 184, 0.34);
@@ -1208,6 +1209,7 @@ table.table.table-hover.p3usersTable {
     font-weight: 650;
     line-height: 1.25;
     white-space: normal;
+    overflow-wrap: anywhere;
     vertical-align: middle;
 }
 
@@ -1224,6 +1226,84 @@ table.table.table-hover.p3usersTable {
 .mc-desktop-comfort-message.warning {
     border-color: rgba(251, 191, 36, 0.58);
     color: #fef3c7;
+}
+
+.mc-alt-session-button {
+    margin-left: 8px !important;
+    vertical-align: middle;
+}
+
+.mc-alt-session-button:disabled {
+    opacity: 0.58;
+    cursor: not-allowed;
+}
+
+.mc-alt-session-status {
+    display: inline-flex;
+    align-items: center;
+    box-sizing: border-box;
+    max-width: min(100%, 260px);
+    margin: 4px 0 4px 8px;
+    padding: 5px 9px;
+    border: 1px solid rgba(148, 163, 184, 0.34);
+    border-radius: 7px;
+    background: rgba(15, 23, 42, 0.76);
+    color: #cbd5e1;
+    font-size: 12px;
+    font-weight: 650;
+    line-height: 1.25;
+    white-space: normal;
+    overflow-wrap: anywhere;
+    vertical-align: middle;
+}
+
+#mc-stream-status-badge,
+.mc-auto-clipboard-status,
+.mc-alt-session-status {
+    flex: 0 1 auto;
+    min-width: 0;
+}
+
+.mc-alt-session-status.available {
+    border-color: rgba(45, 212, 191, 0.58);
+    color: #ccfbf1;
+}
+
+.mc-alt-session-status.limited,
+.mc-alt-session-status.setup,
+.mc-alt-session-status.unknown {
+    border-color: rgba(251, 191, 36, 0.58);
+    color: #fef3c7;
+}
+
+.mc-alt-session-diagnostics {
+    display: grid;
+    gap: 8px;
+    max-width: min(520px, calc(100vw - 28px));
+    margin: 8px 0 8px 8px;
+    padding: 12px;
+    border: 1px solid rgba(148, 163, 184, 0.34);
+    border-radius: 8px;
+    background: rgba(15, 23, 42, 0.94);
+    color: #e5edf8;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.28);
+    font-size: 12px;
+    line-height: 1.35;
+}
+
+.mc-alt-session-diagnostics strong {
+    font-size: 13px;
+}
+
+.mc-alt-session-diagnostics button {
+    justify-self: start;
+    min-height: 28px;
+    padding: 0 12px;
+    border: 1px solid rgba(148, 163, 184, 0.42);
+    border-radius: 7px;
+    background: rgba(30, 41, 59, 0.92);
+    color: #ffffff;
+    cursor: pointer;
 }
 
 /* Scrollbars */
