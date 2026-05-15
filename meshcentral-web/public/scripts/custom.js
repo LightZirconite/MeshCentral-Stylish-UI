@@ -1466,8 +1466,8 @@ document.addEventListener('DOMContentLoaded', () => {
         button.title = 'Session alternative non disponible sur cet appareil';
         button.addEventListener('click', function () {
             if (tryOpenExistingSessionPicker()) return;
-            requestAlternativeDesktopCapabilities();
-            showAlternativeSessionDiagnostics();
+            const requested = requestAlternativeDesktopStart() || requestAlternativeDesktopCapabilities();
+            showAlternativeSessionDiagnostics(requested);
         });
 
         connectButton.parentNode.insertBefore(button, connectButton.nextSibling);
@@ -1569,9 +1569,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const platform = getNodePlatformHint();
         if (platform === 'win32') {
             return {
-                state: 'limited',
-                label: 'Alternative limitee',
-                detail: 'Windows 10/11 classique ne fournit pas un second bureau graphique complet et fiable dans la meme session. Le fallback propre est PowerShell, fichiers, presse-papier et navigateur/profil isole.'
+                state: 'available',
+                label: 'Bureau cache experimental',
+                detail: 'L agent peut demarrer un bureau Win32 cache experimental via MeshAgent.getRemoteDesktop(-2). Certaines apps protegees, UAC et injections clavier/souris peuvent encore necessiter des ajustements.'
             };
         }
 
@@ -1603,23 +1603,48 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
     }
 
-    function showAlternativeSessionDiagnostics() {
+    function requestAlternativeDesktopStart() {
+        const nodeId = getCurrentNodeId();
+        if (!nodeId || !window.meshserver || typeof window.meshserver.send !== 'function') return false;
+
+        window.meshserver.send({
+            action: 'msg',
+            type: 'alternativeDesktop',
+            op: 'start',
+            mode: 'windows-hidden-desktop',
+            tsid: -2,
+            nodeid: nodeId
+        });
+        return true;
+    }
+
+    function showAlternativeSessionDiagnostics(requestedCapabilities) {
         const existing = document.getElementById(ALT_SESSION_DIAG_ID);
         if (existing) existing.remove();
 
         const state = getAlternativeSessionState();
-        const host = findDesktopToolbar() || document.body;
+        const host = document.body || findDesktopToolbar();
         const panel = document.createElement('div');
         panel.id = ALT_SESSION_DIAG_ID;
         panel.className = 'mc-alt-session-diagnostics ' + state.state;
+        panel.setAttribute('role', 'status');
+        panel.setAttribute('aria-live', 'polite');
 
         const title = document.createElement('strong');
         title.textContent = state.label;
         panel.appendChild(title);
 
         const detail = document.createElement('span');
-        detail.textContent = state.detail;
+        detail.textContent = requestedCapabilities ?
+            state.detail + ' Demande envoyee a l agent pour verifier les capacites.' :
+            state.detail;
         panel.appendChild(detail);
+
+        if (state.label === 'Bureau cache experimental') {
+            const hint = document.createElement('span');
+            hint.textContent = 'Cote serveur, le clic doit maintenant router le bureau distant vers la session speciale -2. Sans ce routage, le bouton affiche ce diagnostic mais ne peut pas encore ouvrir le flux.';
+            panel.appendChild(hint);
+        }
 
         const close = document.createElement('button');
         close.type = 'button';
@@ -1628,6 +1653,7 @@ document.addEventListener('DOMContentLoaded', () => {
         panel.appendChild(close);
 
         host.appendChild(panel);
+        showComfortMessage(state.label, state.state === 'available' ? 'info' : 'warning');
     }
 
     function enableNativeAutomaticClipboardIfPresent() {

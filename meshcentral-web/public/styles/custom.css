@@ -1279,8 +1279,13 @@ table.table.table-hover.p3usersTable {
 .mc-alt-session-diagnostics {
     display: grid;
     gap: 8px;
-    max-width: min(520px, calc(100vw - 28px));
-    margin: 8px 0 8px 8px;
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    z-index: 99999;
+    width: min(520px, calc(100vw - 28px));
+    max-width: calc(100vw - 28px);
+    margin: 0;
     padding: 12px;
     border: 1px solid rgba(148, 163, 184, 0.34);
     border-radius: 8px;
