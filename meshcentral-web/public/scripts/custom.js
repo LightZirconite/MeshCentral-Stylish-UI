@@ -1593,11 +1593,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function requestAlternativeSessionOpen() {
         const nodeId = getCurrentNodeId();
+        const platform = getNodePlatformHint();
         console.info('[MeshCentral custom] Session alternative click', { nodeId: nodeId });
 
         if (!nodeId) {
             showComfortMessage('Aucun appareil selectionne pour la session alternative.', 'warning');
             return false;
+        }
+
+        if (platform === 'win32') {
+            console.info('[MeshCentral custom] Ouverture session alternative Windows', { nodeId: nodeId, tsid: -2 });
+            showComfortMessage('Ouverture de la session alternative Windows...', 'info');
+            connectDesktop(null, 1, -2, 0);
+            return true;
         }
 
         if (!window.meshserver || typeof window.meshserver.send !== 'function') {
