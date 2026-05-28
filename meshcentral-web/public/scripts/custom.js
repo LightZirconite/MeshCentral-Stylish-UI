@@ -504,7 +504,6 @@
     const STREAM_BADGE_ID = 'mc-stream-status-badge';
     const DESKTOP_STATUS_ID = 'deskstatus';
     const FALLBACK_STATUS_ID = 'p13bottomstatus';
-    const DEFAULT_STREAM_LABEL = 'Flux: images en tuiles';
     const WEBRTC_STREAM_LABEL = 'Flux: WebRTC actif';
     const RDP_STREAM_LABEL = 'Flux: RDP';
     const AMT_STREAM_LABEL = 'Flux: Intel AMT KVM';
@@ -547,7 +546,7 @@
         if (desktop && desktop.contype === 2) return AMT_STREAM_LABEL;
         if (hasActiveWebRtc()) return WEBRTC_STREAM_LABEL;
 
-        return DEFAULT_STREAM_LABEL;
+        return '';
     };
 
     const shouldShowBadge = (status, statusText) => {
@@ -1489,7 +1488,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const status = document.createElement('span');
         status.id = ALT_SESSION_STATUS_ID;
         status.className = 'mc-alt-session-status';
-        status.textContent = 'Session principale';
+        status.textContent = '';
+        status.classList.add('is-hidden');
         statusHost.appendChild(status);
     }
 
