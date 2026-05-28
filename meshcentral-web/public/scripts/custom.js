@@ -1337,9 +1337,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastClipboardNodeId = null;
     let lastRemoteClipboardText = '';
     let lastRemoteClipboardRequestAt = 0;
-    let latestAlternativeSessionState = null;
-    let alternativeCapabilitiesNodeId = null;
-    let alternativeCapabilitiesRequestedAt = 0;
+    let pendingAlternativeSessionRequest = null;
     let incomingClipboardHookTarget = null;
     let comfortObserver = null;
 
@@ -1469,7 +1467,7 @@ document.addEventListener('DOMContentLoaded', () => {
         button.title = 'Session alternative non disponible sur cet appareil';
         button.addEventListener('click', function () {
             if (tryOpenExistingSessionPicker()) return;
-            requestAlternativeDesktopCapabilities();
+            requestAlternativeSessionOpen();
         });
 
         connectButton.parentNode.insertBefore(button, connectButton.nextSibling);
@@ -1569,10 +1567,6 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
 
-        if (latestAlternativeSessionState && latestAlternativeSessionState.nodeId === getCurrentNodeId()) {
-            return latestAlternativeSessionState.state;
-        }
-
         const platform = getNodePlatformHint();
         if (platform === 'win32') {
             return {
@@ -1593,66 +1587,30 @@ document.addEventListener('DOMContentLoaded', () => {
         return {
             state: 'unknown',
             label: 'Session alternative a verifier',
-            detail: 'Le serveur complet doit demander les capacites a l agent alternative-desktop.'
+            detail: 'Le serveur demandera directement les sessions natives disponibles a l agent.'
         };
     }
 
-    function requestAlternativeDesktopCapabilities() {
+    function requestAlternativeSessionOpen() {
         const nodeId = getCurrentNodeId();
-        if (!nodeId || !window.meshserver || typeof window.meshserver.send !== 'function') return false;
+        console.info('[MeshCentral custom] Session alternative click', { nodeId: nodeId });
 
-        const now = Date.now();
-        if (alternativeCapabilitiesNodeId === nodeId && (now - alternativeCapabilitiesRequestedAt) < 5000) return false;
-        alternativeCapabilitiesNodeId = nodeId;
-        alternativeCapabilitiesRequestedAt = now;
+        if (!nodeId) {
+            showComfortMessage('Aucun appareil selectionne pour la session alternative.', 'warning');
+            return false;
+        }
 
+        if (!window.meshserver || typeof window.meshserver.send !== 'function') {
+            console.warn('[MeshCentral custom] Session alternative impossible: meshserver.send indisponible.');
+            showComfortMessage('Canal serveur indisponible pour demander les sessions.', 'warning');
+            return false;
+        }
+
+        pendingAlternativeSessionRequest = { nodeId: nodeId, requestedAt: Date.now() };
         installIncomingServerHook();
-        window.meshserver.send({
-            action: 'msg',
-            type: 'alternativeDesktop',
-            op: 'capabilities',
-            nodeid: nodeId
-        });
+        window.meshserver.send({ action: 'msg', type: 'userSessions', nodeid: nodeId, tag: 0 });
+        showComfortMessage('Recherche d une session alternative...', 'info');
         return true;
-    }
-
-    function ensureAlternativeDesktopCapabilitiesRequested() {
-        const nodeId = getCurrentNodeId();
-        if (!nodeId) return;
-        if (latestAlternativeSessionState && latestAlternativeSessionState.nodeId === nodeId) return;
-        requestAlternativeDesktopCapabilities();
-    }
-
-    function showAlternativeSessionDiagnostics(requestedCapabilities) {
-        const existing = document.getElementById(ALT_SESSION_DIAG_ID);
-        if (existing) existing.remove();
-
-        const state = getAlternativeSessionState();
-        const host = document.body || findDesktopToolbar();
-        const panel = document.createElement('div');
-        panel.id = ALT_SESSION_DIAG_ID;
-        panel.className = 'mc-alt-session-diagnostics ' + state.state;
-        panel.setAttribute('role', 'status');
-        panel.setAttribute('aria-live', 'polite');
-
-        const title = document.createElement('strong');
-        title.textContent = state.label;
-        panel.appendChild(title);
-
-        const detail = document.createElement('span');
-        detail.textContent = requestedCapabilities ?
-            state.detail + ' Demande envoyee a l agent pour verifier les capacites.' :
-            state.detail;
-        panel.appendChild(detail);
-
-        const close = document.createElement('button');
-        close.type = 'button';
-        close.textContent = 'OK';
-        close.addEventListener('click', function () { panel.remove(); });
-        panel.appendChild(close);
-
-        host.appendChild(panel);
-        showComfortMessage(state.label, state.state === 'available' ? 'info' : 'warning');
     }
 
     function enableNativeAutomaticClipboardIfPresent() {
@@ -1740,73 +1698,91 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
     }
 
-    function findAlternativeDesktopPayload(message) {
+    function findUserSessionsPayload(message) {
         const candidates = [message, message && message.msg, message && message.event, message && message.data];
         for (const candidate of candidates) {
             if (!candidate || typeof candidate !== 'object') continue;
-            if ((candidate.type || '').toString() !== 'alternativeDesktop') continue;
+            if ((candidate.type || '').toString() !== 'userSessions') continue;
             return candidate;
         }
         return null;
     }
 
-    function normalizeAlternativeDesktopState(payload) {
-        const result = payload && (payload.result || payload.capabilities || payload);
-        if (!result || typeof result !== 'object') return null;
+    function showAlternativeSessionChoices(sessions) {
+        const existing = document.getElementById(ALT_SESSION_DIAG_ID);
+        if (existing) existing.remove();
 
-        const state = (result.state || (payload.ok === false ? 'unavailable' : 'unknown')).toString();
-        const mode = result.mode || null;
-        const reason = result.reason || payload.error || 'Etat de session alternative recu depuis l agent.';
+        const panel = document.createElement('div');
+        panel.id = ALT_SESSION_DIAG_ID;
+        panel.className = 'mc-alt-session-diagnostics available';
+        panel.setAttribute('role', 'dialog');
 
-        if (state === 'available') {
-            return {
-                state: 'available',
-                label: mode === 'linux-xvfb' ? 'Session alternative Linux disponible' : 'Session alternative disponible',
-                detail: reason,
-                result: result
-            };
-        }
+        const title = document.createElement('strong');
+        title.textContent = 'Sessions alternatives disponibles';
+        panel.appendChild(title);
 
-        if (state === 'setup-required') {
-            return {
-                state: 'setup',
-                label: 'Configuration de session alternative requise',
-                detail: reason,
-                result: result
-            };
-        }
+        sessions.forEach(function (session) {
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.textContent = [
+                session.Username || 'Utilisateur',
+                session.StationName || ('Session ' + session.SessionId)
+            ].join(' - ');
+            button.addEventListener('click', function () {
+                panel.remove();
+                console.info('[MeshCentral custom] Ouverture session alternative', session);
+                connectDesktop(null, 1, session.SessionId, 0);
+            });
+            panel.appendChild(button);
+        });
 
-        if (state === 'unavailable') {
-            return {
-                state: 'limited',
-                label: 'Session alternative non disponible',
-                detail: reason,
-                result: result
-            };
-        }
+        const close = document.createElement('button');
+        close.type = 'button';
+        close.textContent = 'Fermer';
+        close.addEventListener('click', function () { panel.remove(); });
+        panel.appendChild(close);
 
-        return {
-            state: 'unknown',
-            label: 'Session alternative a verifier',
-            detail: reason,
-            result: result
-        };
+        (document.body || findDesktopToolbar()).appendChild(panel);
     }
 
-    function handleIncomingAlternativeDesktopMessage(raw) {
+    function handleIncomingAlternativeUserSessionsMessage(raw) {
+        if (!pendingAlternativeSessionRequest) return false;
+
         const message = normalizeIncomingMessage(raw);
-        const payload = findAlternativeDesktopPayload(message);
-        const state = normalizeAlternativeDesktopState(payload);
-        if (!state) return;
+        const payload = findUserSessionsPayload(message);
+        if (!payload) return false;
 
-        latestAlternativeSessionState = {
-            nodeId: payload.nodeid || getCurrentNodeId(),
-            state: state
-        };
-        updateDesktopComfortUi();
+        const currentNode = getCurrentNodeId();
+        const payloadNode = payload.nodeid || currentNode;
+        if (payloadNode !== pendingAlternativeSessionRequest.nodeId && payloadNode !== currentNode) return false;
 
-        const panel = document.getElementById(ALT_SESSION_DIAG_ID);
-        if (panel) showAlternativeSessionDiagnostics(false);
+        const sessions = payload.data && typeof payload.data === 'object' ? Object.keys(payload.data).map(function (id) {
+            const session = payload.data[id];
+            if (session && session.SessionId == null) session.SessionId = parseInt(id);
+            return session;
+        }).filter(Boolean) : [];
+
+        const spawnable = sessions.filter(function (session) {
+            return session && session.State === 'Spawnable' && session.SessionId != null;
+        });
+
+        console.info('[MeshCentral custom] Reponse userSessions pour session alternative', {
+            sessions: sessions,
+            spawnable: spawnable
+        });
+
+        pendingAlternativeSessionRequest = null;
+
+        if (spawnable.length === 1) {
+            showComfortMessage('Ouverture de la session alternative...', 'info');
+            connectDesktop(null, 1, spawnable[0].SessionId, 0);
+        } else if (spawnable.length > 1) {
+            showAlternativeSessionChoices(spawnable);
+        } else {
+            showComfortMessage('Aucune session alternative disponible sur cet appareil.', 'warning');
+        }
+
+        return true;
     }
 
     async function receiveRemoteClipboardText(text) {
@@ -1834,8 +1810,9 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function handleIncomingServerMessage(raw) {
-        handleIncomingAlternativeDesktopMessage(raw);
+        if (handleIncomingAlternativeUserSessionsMessage(raw)) return true;
         handleIncomingClipboardMessage(raw);
+        return false;
     }
 
     function installIncomingServerHook() {
@@ -1844,18 +1821,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
         incomingClipboardHookTarget = server;
 
-        if (typeof server.addEventListener === 'function') {
-            server.addEventListener('message', handleIncomingServerMessage);
-        }
-
-        if (typeof server.on === 'function') {
-            try { server.on('message', handleIncomingServerMessage); } catch (_) { }
-        }
-
         const originalOnMessage = server.onmessage;
         server.onmessage = function () {
-            handleIncomingServerMessage(arguments[0]);
-            if (typeof originalOnMessage === 'function') {
+            const handled = handleIncomingServerMessage(arguments[0]);
+            if (!handled && typeof originalOnMessage === 'function') {
                 return originalOnMessage.apply(this, arguments);
             }
         };
@@ -1960,11 +1929,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const altSessionStatus = document.getElementById(ALT_SESSION_STATUS_ID);
         if (altSessionStatus) {
-            const hasAgentAlternativeState = latestAlternativeSessionState && latestAlternativeSessionState.nodeId === nodeId;
-            const showAlternativeStatus = connected && hasAgentAlternativeState && alternativeState.state !== 'limited';
-            altSessionStatus.textContent = showAlternativeStatus ? alternativeState.label : '';
+            altSessionStatus.textContent = '';
             altSessionStatus.className = 'mc-alt-session-status ' + alternativeState.state;
-            altSessionStatus.classList.toggle('is-hidden', !showAlternativeStatus);
+            altSessionStatus.classList.add('is-hidden');
         }
 
         if (enabled && connected) {
@@ -1972,8 +1939,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             stopAutoClipboardPolling();
         }
-
-        ensureAlternativeDesktopCapabilitiesRequested();
     }
 
     function scheduleDesktopComfortRefresh() {
