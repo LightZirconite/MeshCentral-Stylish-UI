@@ -1257,6 +1257,10 @@ table.table.table-hover.p3usersTable {
     vertical-align: middle;
 }
 
+.mc-alt-session-status.is-hidden {
+    display: none !important;
+}
+
 #mc-stream-status-badge,
 .mc-auto-clipboard-status,
 .mc-alt-session-status {

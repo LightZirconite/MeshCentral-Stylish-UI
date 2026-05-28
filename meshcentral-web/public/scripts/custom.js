@@ -551,6 +551,7 @@
     };
 
     const shouldShowBadge = (status, statusText) => {
+        if (window.mcShowDesktopStreamBadge !== true) return false;
         if (!status || statusText.length === 0) return false;
 
         if (status.id === DESKTOP_STATUS_ID) {
@@ -1338,6 +1339,8 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastRemoteClipboardText = '';
     let lastRemoteClipboardRequestAt = 0;
     let latestAlternativeSessionState = null;
+    let alternativeCapabilitiesNodeId = null;
+    let alternativeCapabilitiesRequestedAt = 0;
     let incomingClipboardHookTarget = null;
     let comfortObserver = null;
 
@@ -1467,8 +1470,7 @@ document.addEventListener('DOMContentLoaded', () => {
         button.title = 'Session alternative non disponible sur cet appareil';
         button.addEventListener('click', function () {
             if (tryOpenExistingSessionPicker()) return;
-            const requested = requestAlternativeDesktopCapabilities();
-            showAlternativeSessionDiagnostics(requested);
+            requestAlternativeDesktopCapabilities();
         });
 
         connectButton.parentNode.insertBefore(button, connectButton.nextSibling);
@@ -1599,6 +1601,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const nodeId = getCurrentNodeId();
         if (!nodeId || !window.meshserver || typeof window.meshserver.send !== 'function') return false;
 
+        const now = Date.now();
+        if (alternativeCapabilitiesNodeId === nodeId && (now - alternativeCapabilitiesRequestedAt) < 5000) return false;
+        alternativeCapabilitiesNodeId = nodeId;
+        alternativeCapabilitiesRequestedAt = now;
+
         installIncomingServerHook();
         window.meshserver.send({
             action: 'msg',
@@ -1607,6 +1614,13 @@ document.addEventListener('DOMContentLoaded', () => {
             nodeid: nodeId
         });
         return true;
+    }
+
+    function ensureAlternativeDesktopCapabilitiesRequested() {
+        const nodeId = getCurrentNodeId();
+        if (!nodeId) return;
+        if (latestAlternativeSessionState && latestAlternativeSessionState.nodeId === nodeId) return;
+        requestAlternativeDesktopCapabilities();
     }
 
     function showAlternativeSessionDiagnostics(requestedCapabilities) {
@@ -1936,17 +1950,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const altSessionButton = document.getElementById(ALT_SESSION_BUTTON_ID);
         if (altSessionButton) {
-            const hasAlternativeSession = alternativeState.state === 'available';
-            altSessionButton.disabled = !nodeId;
+            const hasSessionPicker = !!findExistingSessionEntryPoint();
+            const hasAlternativeSession = hasSessionPicker && alternativeState.state === 'available';
+            altSessionButton.disabled = !nodeId || !hasAlternativeSession;
             altSessionButton.title = hasAlternativeSession ?
                 'Ouvrir une session alternative disponible sur cet appareil' :
-                alternativeState.detail;
+                'Session alternative indisponible: aucun backend ouvrable depuis cette page.';
         }
 
         const altSessionStatus = document.getElementById(ALT_SESSION_STATUS_ID);
         if (altSessionStatus) {
-            altSessionStatus.textContent = connected ? alternativeState.label : 'Session principale';
+            const hasAgentAlternativeState = latestAlternativeSessionState && latestAlternativeSessionState.nodeId === nodeId;
+            const showAlternativeStatus = connected && hasAgentAlternativeState && alternativeState.state !== 'limited';
+            altSessionStatus.textContent = showAlternativeStatus ? alternativeState.label : '';
             altSessionStatus.className = 'mc-alt-session-status ' + alternativeState.state;
+            altSessionStatus.classList.toggle('is-hidden', !showAlternativeStatus);
         }
 
         if (enabled && connected) {
@@ -1954,6 +1972,8 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             stopAutoClipboardPolling();
         }
+
+        ensureAlternativeDesktopCapabilitiesRequested();
     }
 
     function scheduleDesktopComfortRefresh() {
