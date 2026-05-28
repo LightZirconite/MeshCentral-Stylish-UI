@@ -1337,6 +1337,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let lastClipboardNodeId = null;
     let lastRemoteClipboardText = '';
     let lastRemoteClipboardRequestAt = 0;
+    let latestAlternativeSessionState = null;
     let incomingClipboardHookTarget = null;
     let comfortObserver = null;
 
@@ -1466,7 +1467,7 @@ document.addEventListener('DOMContentLoaded', () => {
         button.title = 'Session alternative non disponible sur cet appareil';
         button.addEventListener('click', function () {
             if (tryOpenExistingSessionPicker()) return;
-            const requested = requestAlternativeDesktopStart() || requestAlternativeDesktopCapabilities();
+            const requested = requestAlternativeDesktopCapabilities();
             showAlternativeSessionDiagnostics(requested);
         });
 
@@ -1566,12 +1567,16 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
 
+        if (latestAlternativeSessionState && latestAlternativeSessionState.nodeId === getCurrentNodeId()) {
+            return latestAlternativeSessionState.state;
+        }
+
         const platform = getNodePlatformHint();
         if (platform === 'win32') {
             return {
-                state: 'available',
-                label: 'Bureau cache experimental',
-                detail: 'L agent peut demarrer un bureau Win32 cache experimental via MeshAgent.getRemoteDesktop(-2). Certaines apps protegees, UAC et injections clavier/souris peuvent encore necessiter des ajustements.'
+                state: 'limited',
+                label: 'Session alternative Windows non disponible',
+                detail: 'Aucun backend Windows explicite et auditable n est connecte. Le mode bureau cache experimental n est pas expose.'
             };
         }
 
@@ -1594,25 +1599,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const nodeId = getCurrentNodeId();
         if (!nodeId || !window.meshserver || typeof window.meshserver.send !== 'function') return false;
 
+        installIncomingServerHook();
         window.meshserver.send({
             action: 'msg',
             type: 'alternativeDesktop',
             op: 'capabilities',
-            nodeid: nodeId
-        });
-        return true;
-    }
-
-    function requestAlternativeDesktopStart() {
-        const nodeId = getCurrentNodeId();
-        if (!nodeId || !window.meshserver || typeof window.meshserver.send !== 'function') return false;
-
-        window.meshserver.send({
-            action: 'msg',
-            type: 'alternativeDesktop',
-            op: 'start',
-            mode: 'windows-hidden-desktop',
-            tsid: -2,
             nodeid: nodeId
         });
         return true;
@@ -1639,12 +1630,6 @@ document.addEventListener('DOMContentLoaded', () => {
             state.detail + ' Demande envoyee a l agent pour verifier les capacites.' :
             state.detail;
         panel.appendChild(detail);
-
-        if (state.label === 'Bureau cache experimental') {
-            const hint = document.createElement('span');
-            hint.textContent = 'Cote serveur, le clic doit maintenant router le bureau distant vers la session speciale -2. Sans ce routage, le bouton affiche ce diagnostic mais ne peut pas encore ouvrir le flux.';
-            panel.appendChild(hint);
-        }
 
         const close = document.createElement('button');
         close.type = 'button';
@@ -1741,6 +1726,75 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
     }
 
+    function findAlternativeDesktopPayload(message) {
+        const candidates = [message, message && message.msg, message && message.event, message && message.data];
+        for (const candidate of candidates) {
+            if (!candidate || typeof candidate !== 'object') continue;
+            if ((candidate.type || '').toString() !== 'alternativeDesktop') continue;
+            return candidate;
+        }
+        return null;
+    }
+
+    function normalizeAlternativeDesktopState(payload) {
+        const result = payload && (payload.result || payload.capabilities || payload);
+        if (!result || typeof result !== 'object') return null;
+
+        const state = (result.state || (payload.ok === false ? 'unavailable' : 'unknown')).toString();
+        const mode = result.mode || null;
+        const reason = result.reason || payload.error || 'Etat de session alternative recu depuis l agent.';
+
+        if (state === 'available') {
+            return {
+                state: 'available',
+                label: mode === 'linux-xvfb' ? 'Session alternative Linux disponible' : 'Session alternative disponible',
+                detail: reason,
+                result: result
+            };
+        }
+
+        if (state === 'setup-required') {
+            return {
+                state: 'setup',
+                label: 'Configuration de session alternative requise',
+                detail: reason,
+                result: result
+            };
+        }
+
+        if (state === 'unavailable') {
+            return {
+                state: 'limited',
+                label: 'Session alternative non disponible',
+                detail: reason,
+                result: result
+            };
+        }
+
+        return {
+            state: 'unknown',
+            label: 'Session alternative a verifier',
+            detail: reason,
+            result: result
+        };
+    }
+
+    function handleIncomingAlternativeDesktopMessage(raw) {
+        const message = normalizeIncomingMessage(raw);
+        const payload = findAlternativeDesktopPayload(message);
+        const state = normalizeAlternativeDesktopState(payload);
+        if (!state) return;
+
+        latestAlternativeSessionState = {
+            nodeId: payload.nodeid || getCurrentNodeId(),
+            state: state
+        };
+        updateDesktopComfortUi();
+
+        const panel = document.getElementById(ALT_SESSION_DIAG_ID);
+        if (panel) showAlternativeSessionDiagnostics(false);
+    }
+
     async function receiveRemoteClipboardText(text) {
         const nodeId = getCurrentNodeId();
         if (!nodeId || !isAutoClipboardEnabled(nodeId) || !isDesktopConnected()) return;
@@ -1765,27 +1819,36 @@ document.addEventListener('DOMContentLoaded', () => {
         if (text != null) receiveRemoteClipboardText(text);
     }
 
-    function installIncomingClipboardHook() {
+    function handleIncomingServerMessage(raw) {
+        handleIncomingAlternativeDesktopMessage(raw);
+        handleIncomingClipboardMessage(raw);
+    }
+
+    function installIncomingServerHook() {
         const server = window.meshserver;
         if (!server || incomingClipboardHookTarget === server) return;
 
         incomingClipboardHookTarget = server;
 
         if (typeof server.addEventListener === 'function') {
-            server.addEventListener('message', handleIncomingClipboardMessage);
+            server.addEventListener('message', handleIncomingServerMessage);
         }
 
         if (typeof server.on === 'function') {
-            try { server.on('message', handleIncomingClipboardMessage); } catch (_) { }
+            try { server.on('message', handleIncomingServerMessage); } catch (_) { }
         }
 
         const originalOnMessage = server.onmessage;
         server.onmessage = function () {
-            handleIncomingClipboardMessage(arguments[0]);
+            handleIncomingServerMessage(arguments[0]);
             if (typeof originalOnMessage === 'function') {
                 return originalOnMessage.apply(this, arguments);
             }
         };
+    }
+
+    function installIncomingClipboardHook() {
+        installIncomingServerHook();
     }
 
     async function pollLocalClipboard() {
