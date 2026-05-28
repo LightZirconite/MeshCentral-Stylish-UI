@@ -1607,6 +1607,27 @@ document.addEventListener('DOMContentLoaded', () => {
         window.CreateAgentRemoteDesktop._mcAudioPatch = true;
     }
 
+    function installConnectDesktopSessionPatch() {
+        if (typeof window.connectDesktop !== 'function') return;
+        if (window.connectDesktop._mcSessionPatch) return;
+
+        const originalConnectDesktop = window.connectDesktop;
+        window.connectDesktop = function () {
+            if (window.desktop) {
+                if (window.desktop._mcAlternativeSession === true) {
+                    window.desktop._mcAlternativeSession = false;
+                } else if (window.desktop.options && window.desktop.options.tsid === -2) {
+                    const nextOptions = Object.assign({}, window.desktop.options);
+                    delete nextOptions.tsid;
+                    window.desktop.options = Object.keys(nextOptions).length > 0 ? nextOptions : null;
+                }
+            }
+
+            return originalConnectDesktop.apply(this, arguments);
+        };
+        window.connectDesktop._mcSessionPatch = true;
+    }
+
     function attachDesktopAudio(desktopController) {
         if (!desktopController || desktopController._mcAudioPatch) return desktopController;
 
@@ -1780,7 +1801,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (platform === 'win32') {
             console.info('[MeshCentral custom] Ouverture session alternative Windows', { nodeId: nodeId, tsid: -2 });
             showComfortMessage('Ouverture de la session alternative Windows...', 'info');
-            connectDesktop(null, 1, -2, 0);
+            if (window.desktop) {
+                window.desktop.options = Object.assign({}, window.desktop.options || {}, { tsid: -2 });
+                window.desktop._mcAlternativeSession = true;
+            }
+            connectDesktop(null);
             return true;
         }
 
@@ -2073,6 +2098,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateDesktopComfortUi(statusMode) {
+        installConnectDesktopSessionPatch();
         installDesktopAudioPatch();
         ensureAutoClipboardButton();
         ensureAutoClipboardStatus();
