@@ -1325,6 +1325,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const ALT_SESSION_BUTTON_ID = 'mc-alt-session-button';
     const ALT_SESSION_STATUS_ID = 'mc-alt-session-status';
     const ALT_SESSION_DIAG_ID = 'mc-alt-session-diagnostics';
+    const AUDIO_BUTTON_ID = 'mc-desktop-audio-toggle';
+    const MNG_AUDIO_DATA = 71;
+    const MNG_AUDIO_START = 72;
+    const MNG_AUDIO_STOP = 73;
+    const MNG_AUDIO_INFO = 74;
     const CLIPBOARD_MAX_CHARS = 64 * 1024;
     const CLIPBOARD_POLL_MS = 500;
     const CLIPBOARD_REMOTE_POLL_MS = 1200;
@@ -1426,6 +1431,36 @@ document.addEventListener('DOMContentLoaded', () => {
             const nextState = !isAutoClipboardEnabled(nodeId);
             setAutoClipboardEnabled(nodeId, nextState);
             showComfortMessage(nextState ? 'Presse-papier automatique active pour cet appareil.' : 'Presse-papier automatique desactive pour cet appareil.', 'info');
+        });
+
+        toolbar.appendChild(button);
+    }
+
+    function ensureDesktopAudioButton() {
+        if (document.getElementById(AUDIO_BUTTON_ID)) return;
+
+        const toolbar = findDesktopToolbar();
+        if (!toolbar) return;
+
+        const button = document.createElement('button');
+        button.id = AUDIO_BUTTON_ID;
+        button.type = 'button';
+        button.className = 'mc-desktop-comfort-button';
+        button.textContent = 'Audio';
+        button.title = 'Activer le son du bureau distant';
+        button.addEventListener('click', function () {
+            const controller = getDesktopAudioController();
+            if (!controller || typeof controller.ToggleAudio !== 'function') {
+                showComfortMessage('Audio indisponible tant que le bureau n est pas connecte.', 'warning');
+                return;
+            }
+
+            if (!controller.ToggleAudio()) {
+                showComfortMessage('Audio indisponible dans ce navigateur.', 'warning');
+                return;
+            }
+
+            showComfortMessage(controller._mcAudioEnabled ? 'Audio du bureau active.' : 'Audio du bureau arrete.', 'info');
         });
 
         toolbar.appendChild(button);
@@ -1539,6 +1574,147 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         return false;
+    }
+
+    function getDesktopAudioController() {
+        const candidates = [
+            window.desktop && window.desktop.m,
+            window.desktop,
+            window.webRtcDesktop && window.webRtcDesktop.softdesktop && window.webRtcDesktop.softdesktop.m,
+            window.webRtcDesktop && window.webRtcDesktop.softdesktop
+        ];
+
+        for (const candidate of candidates) {
+            const attached = attachDesktopAudio(candidate);
+            if (attached && typeof attached.ToggleAudio === 'function') return attached;
+        }
+
+        return null;
+    }
+
+    function makeKvmCommand(command) {
+        return String.fromCharCode(0x00, command, 0x00, 0x04);
+    }
+
+    function installDesktopAudioPatch() {
+        if (typeof window.CreateAgentRemoteDesktop !== 'function') return;
+        if (window.CreateAgentRemoteDesktop._mcAudioPatch) return;
+
+        const originalFactory = window.CreateAgentRemoteDesktop;
+        window.CreateAgentRemoteDesktop = function () {
+            return attachDesktopAudio(originalFactory.apply(this, arguments));
+        };
+        window.CreateAgentRemoteDesktop._mcAudioPatch = true;
+    }
+
+    function attachDesktopAudio(desktopController) {
+        if (!desktopController || desktopController._mcAudioPatch) return desktopController;
+
+        desktopController._mcAudioPatch = true;
+        desktopController._mcAudioEnabled = false;
+        desktopController._mcAudioSampleRate = 48000;
+        desktopController._mcAudioChannels = 2;
+        desktopController._mcAudioBits = 16;
+        desktopController._mcAudioNextTime = 0;
+
+        desktopController.StartAudio = function () {
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContextClass || typeof this.send !== 'function') return false;
+
+            if (!this._mcAudioContext) this._mcAudioContext = new AudioContextClass();
+            if (this._mcAudioContext.state === 'suspended') this._mcAudioContext.resume();
+
+            this._mcAudioNextTime = Math.max(this._mcAudioContext.currentTime, this._mcAudioNextTime || 0);
+            this.send(makeKvmCommand(MNG_AUDIO_START));
+            this._mcAudioEnabled = true;
+            updateDesktopComfortUi();
+            return true;
+        };
+
+        desktopController.StopAudio = function () {
+            if (typeof this.send === 'function') this.send(makeKvmCommand(MNG_AUDIO_STOP));
+            this._mcAudioEnabled = false;
+            this._mcAudioNextTime = 0;
+            updateDesktopComfortUi();
+            return true;
+        };
+
+        desktopController.ToggleAudio = function () {
+            return this._mcAudioEnabled ? this.StopAudio() : this.StartAudio();
+        };
+
+        desktopController._mcHandleAudioInfo = function (view) {
+            if (!view || view.length < 12) return;
+
+            const sampleRate = ((view[4] << 24) | (view[5] << 16) | (view[6] << 8) | view[7]) >>> 0;
+            const channels = (view[8] << 8) | view[9];
+            const bits = (view[10] << 8) | view[11];
+
+            if (sampleRate >= 8000 && sampleRate <= 384000) this._mcAudioSampleRate = sampleRate;
+            if (channels >= 1 && channels <= 8) this._mcAudioChannels = channels;
+            if (bits === 16) this._mcAudioBits = bits;
+        };
+
+        desktopController._mcHandleAudioData = function (view) {
+            if (!this._mcAudioEnabled || !this._mcAudioContext || !view || view.length <= 8) return;
+            if (this._mcAudioBits !== 16) return;
+
+            const channels = Math.max(1, Math.min(8, this._mcAudioChannels || 2));
+            const frameCount = Math.floor((view.length - 8) / (channels * 2));
+            if (frameCount <= 0) return;
+
+            const audioBuffer = this._mcAudioContext.createBuffer(channels, frameCount, this._mcAudioSampleRate || 48000);
+            let offset = 8;
+
+            for (let frame = 0; frame < frameCount; frame++) {
+                for (let channel = 0; channel < channels; channel++) {
+                    const low = view[offset++];
+                    const high = view[offset++];
+                    let sample = (high << 8) | low;
+                    if (sample & 0x8000) sample -= 0x10000;
+                    audioBuffer.getChannelData(channel)[frame] = sample / 32768;
+                }
+            }
+
+            const source = this._mcAudioContext.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(this._mcAudioContext.destination);
+
+            const startAt = Math.max(this._mcAudioContext.currentTime + 0.02, this._mcAudioNextTime || 0);
+            source.start(startAt);
+            this._mcAudioNextTime = startAt + audioBuffer.duration;
+
+            if ((this._mcAudioNextTime - this._mcAudioContext.currentTime) > 1.5) {
+                this._mcAudioNextTime = this._mcAudioContext.currentTime + 0.2;
+            }
+        };
+
+        const originalProcessBinaryCommand = desktopController.ProcessBinaryCommand;
+        if (typeof originalProcessBinaryCommand === 'function') {
+            desktopController.ProcessBinaryCommand = function (command, commandSize, view) {
+                if (command === MNG_AUDIO_INFO) {
+                    this._mcHandleAudioInfo(view);
+                    return;
+                }
+
+                if (command === MNG_AUDIO_DATA) {
+                    this._mcHandleAudioData(view);
+                    return;
+                }
+
+                return originalProcessBinaryCommand.apply(this, arguments);
+            };
+        }
+
+        const originalStop = desktopController.Stop;
+        if (typeof originalStop === 'function') {
+            desktopController.Stop = function () {
+                if (this._mcAudioEnabled) this.StopAudio();
+                return originalStop.apply(this, arguments);
+            };
+        }
+
+        return desktopController;
     }
 
     function getNodePlatformHint() {
@@ -1897,15 +2073,18 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateDesktopComfortUi(statusMode) {
+        installDesktopAudioPatch();
         ensureAutoClipboardButton();
         ensureAutoClipboardStatus();
         ensureAlternativeSessionButton();
         ensureAlternativeSessionStatus();
+        ensureDesktopAudioButton();
 
         const nodeId = getCurrentNodeId();
         const enabled = isAutoClipboardEnabled(nodeId);
         const connected = isDesktopConnected();
         const alternativeState = getAlternativeSessionState();
+        const audioController = getDesktopAudioController();
 
         const button = document.getElementById(AUTO_CLIPBOARD_BUTTON_ID);
         if (button) {
@@ -1940,6 +2119,16 @@ document.addEventListener('DOMContentLoaded', () => {
             altSessionStatus.textContent = '';
             altSessionStatus.className = 'mc-alt-session-status ' + alternativeState.state;
             altSessionStatus.classList.add('is-hidden');
+        }
+
+        const audioButton = document.getElementById(AUDIO_BUTTON_ID);
+        if (audioButton) {
+            audioButton.disabled = !connected || !audioController;
+            audioButton.classList.toggle('is-active', !!(audioController && audioController._mcAudioEnabled));
+            audioButton.textContent = audioController && audioController._mcAudioEnabled ? 'Audio ON' : 'Audio';
+            audioButton.title = audioController ?
+                'Activer ou arreter le son du bureau distant' :
+                'Connecte le bureau avant d activer l audio';
         }
 
         if (enabled && connected) {
