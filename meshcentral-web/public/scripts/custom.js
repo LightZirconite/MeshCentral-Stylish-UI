@@ -1952,10 +1952,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (altSessionButton) {
             const hasSessionPicker = !!findExistingSessionEntryPoint();
             const hasAlternativeSession = hasSessionPicker && alternativeState.state === 'available';
-            altSessionButton.disabled = !nodeId || !hasAlternativeSession;
+            altSessionButton.disabled = !nodeId;
             altSessionButton.title = hasAlternativeSession ?
                 'Ouvrir une session alternative disponible sur cet appareil' :
-                'Session alternative indisponible: aucun backend ouvrable depuis cette page.';
+                'Demander une session alternative pour cet appareil.';
         }
 
         const altSessionStatus = document.getElementById(ALT_SESSION_STATUS_ID);
