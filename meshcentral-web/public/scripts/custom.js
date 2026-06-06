@@ -667,6 +667,20 @@
     };
 
     const disableRemoteInputAfterUnlock = () => {
+        const explicitControl = document.getElementById('DeskControlSpan');
+        if (explicitControl) {
+            const label = [
+                explicitControl.className,
+                explicitControl.getAttribute('aria-pressed'),
+                explicitControl.getAttribute('pressed'),
+                explicitControl.title
+            ].join(' ').toLowerCase();
+            if (!label.includes('disabled') && !label.includes('off')) {
+                explicitControl.click();
+                return;
+            }
+        }
+
         const candidates = Array.from(document.querySelectorAll('input[type="checkbox"],button,input[type="button"],a'));
         const control = candidates.find((element) => {
             const label = [
@@ -764,6 +778,32 @@
         document.addEventListener('DOMContentLoaded', start, { once: true });
     } else {
         start();
+    }
+})();
+
+
+// Close the desktop tools drawer if MeshCentral leaves it open by default.
+(() => {
+    let attempts = 0;
+    const closeDefaultDeskTools = () => {
+        const tools = document.getElementById('DeskTools');
+        if (tools && tools.dataset.mcDefaultClosed !== '1') {
+            tools.dataset.mcDefaultClosed = '1';
+            tools.style.display = 'none';
+            return true;
+        }
+        return false;
+    };
+
+    const timer = setInterval(() => {
+        attempts++;
+        if (closeDefaultDeskTools() || attempts > 40) clearInterval(timer);
+    }, 250);
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', closeDefaultDeskTools, { once: true });
+    } else {
+        closeDefaultDeskTools();
     }
 })();
 
