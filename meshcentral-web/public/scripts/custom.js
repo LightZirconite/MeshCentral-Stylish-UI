@@ -1537,9 +1537,6 @@ document.addEventListener('DOMContentLoaded', () => {
 (function () {
     'use strict';
 
-    const AUTO_CLIPBOARD_PREFIX = 'mc:autoClipboard:';
-    const AUTO_CLIPBOARD_BUTTON_ID = 'mc-auto-clipboard-toggle';
-    const AUTO_CLIPBOARD_STATUS_ID = 'mc-auto-clipboard-status';
     const ALT_SESSION_BUTTON_ID = 'mc-alt-session-button';
     const ALT_SESSION_STATUS_ID = 'mc-alt-session-status';
     const ALT_SESSION_DIAG_ID = 'mc-alt-session-diagnostics';
@@ -1548,20 +1545,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const MNG_AUDIO_START = 72;
     const MNG_AUDIO_STOP = 73;
     const MNG_AUDIO_INFO = 74;
-    const CLIPBOARD_MAX_CHARS = 64 * 1024;
-    const CLIPBOARD_POLL_MS = 500;
-    const CLIPBOARD_REMOTE_POLL_MS = 1200;
-    const CLIPBOARD_MIN_SEND_MS = 300;
 
-    let clipboardTimer = null;
-    let remoteClipboardTimer = null;
-    let lastClipboardText = '';
-    let lastClipboardSendAt = 0;
-    let lastClipboardNodeId = null;
-    let lastRemoteClipboardText = '';
-    let lastRemoteClipboardRequestAt = 0;
     let pendingAlternativeSessionRequest = null;
-    let incomingClipboardHookTarget = null;
+    let incomingServerHookTarget = null;
     let comfortObserver = null;
 
     function getCurrentNodeId() {
@@ -1578,22 +1564,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function isAutoClipboardEnabled(nodeId) {
-        return !!nodeId && localStorage.getItem(AUTO_CLIPBOARD_PREFIX + nodeId) === '1';
-    }
-
-    function setAutoClipboardEnabled(nodeId, enabled) {
-        if (!nodeId) return;
-        const storageKey = AUTO_CLIPBOARD_PREFIX + nodeId;
-        if (enabled) {
-            localStorage.setItem(storageKey, '1');
-        } else {
-            localStorage.removeItem(storageKey);
-        }
-        lastClipboardText = '';
-        updateDesktopComfortUi();
-    }
-
     function findDesktopToolbar() {
         const statusHost = document.getElementById('deskstatus') || document.getElementById('p13bottomstatus');
         return (statusHost && statusHost.parentElement) ||
@@ -1601,10 +1571,6 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('p11title') ||
             document.getElementById('deskarea1') ||
             document.getElementById('p11');
-    }
-
-    function isInsideDeskTools(element) {
-        return !!(element && element.closest && element.closest('#DeskTools'));
     }
 
     function findConnectButton() {
@@ -1630,38 +1596,6 @@ document.addEventListener('DOMContentLoaded', () => {
         window.setTimeout(function () {
             if (messageNode.parentNode) messageNode.remove();
         }, 4200);
-    }
-
-    function ensureAutoClipboardButton() {
-        const toolbar = findDesktopToolbar();
-        if (!toolbar) return;
-
-        const existing = document.getElementById(AUTO_CLIPBOARD_BUTTON_ID);
-        if (existing) {
-            if (isInsideDeskTools(existing) || existing.parentElement !== toolbar) {
-                toolbar.appendChild(existing);
-            }
-            return;
-        }
-
-        const button = document.createElement('button');
-        button.id = AUTO_CLIPBOARD_BUTTON_ID;
-        button.type = 'button';
-        button.className = 'mc-desktop-comfort-button';
-        button.textContent = 'Clipboard auto';
-        button.title = 'Activer le presse-papier automatique pour cet appareil';
-        button.addEventListener('click', function () {
-            const nodeId = getCurrentNodeId();
-            if (!nodeId) {
-                showComfortMessage('Aucun appareil selectionne pour le presse-papier automatique.', 'warning');
-                return;
-            }
-            const nextState = !isAutoClipboardEnabled(nodeId);
-            setAutoClipboardEnabled(nodeId, nextState);
-            showComfortMessage(nextState ? 'Presse-papier automatique active pour cet appareil.' : 'Presse-papier automatique desactive pour cet appareil.', 'info');
-        });
-
-        toolbar.appendChild(button);
     }
 
     function ensureDesktopAudioButton() {
@@ -1696,23 +1630,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         toolbar.appendChild(button);
-    }
-
-    function ensureAutoClipboardStatus() {
-        if (document.getElementById(AUTO_CLIPBOARD_STATUS_ID)) return;
-
-        const statusHost = document.getElementById('deskstatus') ||
-            document.getElementById('p13bottomstatus') ||
-            document.getElementById('deskarea1') ||
-            findDesktopToolbar();
-
-        if (!statusHost) return;
-
-        const status = document.createElement('span');
-        status.id = AUTO_CLIPBOARD_STATUS_ID;
-        status.className = 'mc-auto-clipboard-status';
-        status.textContent = 'Clipboard auto actif';
-        statusHost.appendChild(status);
     }
 
     function ensureAlternativeSessionButton() {
@@ -2054,69 +1971,6 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
     }
 
-    function enableNativeAutomaticClipboardIfPresent() {
-        const candidates = Array.from(document.querySelectorAll('input[type="checkbox"],input[type="button"],button,a'));
-        const nativeControl = candidates.find(function (element) {
-            const text = [
-                element.id,
-                element.name,
-                element.title,
-                element.value,
-                element.textContent
-            ].join(' ').toLowerCase();
-            return text.includes('automatic clipboard') || text.includes('auto clipboard') || text.includes('autoclipboard');
-        });
-
-        if (!nativeControl) return false;
-
-        if (nativeControl.matches('input[type="checkbox"]')) {
-            if (!nativeControl.checked) nativeControl.click();
-            return true;
-        }
-
-        if (nativeControl.getAttribute('aria-pressed') === 'false' || nativeControl.classList.contains('off')) {
-            nativeControl.click();
-            return true;
-        }
-
-        return false;
-    }
-
-    function isDesktopConnected() {
-        if (window.desktop && typeof window.desktop.State === 'number') return window.desktop.State !== 0;
-        const connectButton = findConnectButton();
-        if (!connectButton) return false;
-        const text = ((connectButton.value || '') + ' ' + (connectButton.textContent || '')).toLowerCase();
-        return text.includes('disconnect') || text.includes('deconnect') || text.includes('deconnecter');
-    }
-
-    function sendRemoteClipboardText(nodeId, text) {
-        if (!nodeId || !text || text.length > CLIPBOARD_MAX_CHARS) return false;
-
-        if (window.meshserver && typeof window.meshserver.send === 'function') {
-            window.meshserver.send({ action: 'msg', type: 'setclip', nodeid: nodeId, data: text });
-            return true;
-        }
-
-        if (typeof window.sendClipText === 'function') {
-            window.sendClipText(text);
-            return true;
-        }
-
-        return false;
-    }
-
-    function requestRemoteClipboardText(nodeId) {
-        if (!nodeId || !window.meshserver || typeof window.meshserver.send !== 'function') return false;
-
-        const now = Date.now();
-        if ((now - lastRemoteClipboardRequestAt) < CLIPBOARD_REMOTE_POLL_MS) return false;
-
-        window.meshserver.send({ action: 'msg', type: 'getclip', nodeid: nodeId });
-        lastRemoteClipboardRequestAt = now;
-        return true;
-    }
-
     function normalizeIncomingMessage(raw) {
         if (!raw) return null;
         if (raw.data != null) raw = raw.data;
@@ -2124,19 +1978,6 @@ document.addEventListener('DOMContentLoaded', () => {
             try { return JSON.parse(raw); } catch (_) { return null; }
         }
         return typeof raw === 'object' ? raw : null;
-    }
-
-    function findClipboardPayload(message) {
-        const candidates = [message, message && message.msg, message && message.event, message && message.data];
-        for (const candidate of candidates) {
-            if (!candidate || typeof candidate !== 'object') continue;
-            const type = (candidate.type || candidate.action || '').toString().toLowerCase();
-            if (type !== 'getclip' && type !== 'clipboard' && type !== 'clip') continue;
-
-            const data = candidate.data != null ? candidate.data : candidate.value;
-            if (typeof data === 'string') return data;
-        }
-        return null;
     }
 
     function findUserSessionsPayload(message) {
@@ -2226,41 +2067,16 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
     }
 
-    async function receiveRemoteClipboardText(text) {
-        const nodeId = getCurrentNodeId();
-        if (!nodeId || !isAutoClipboardEnabled(nodeId) || !isDesktopConnected()) return;
-        if (!text || text.length > CLIPBOARD_MAX_CHARS || text === lastRemoteClipboardText) return;
-        if (!navigator.clipboard || typeof navigator.clipboard.writeText !== 'function') return;
-
-        try {
-            await navigator.clipboard.writeText(text);
-            lastRemoteClipboardText = text;
-            lastClipboardNodeId = nodeId;
-            lastClipboardText = text;
-            lastClipboardSendAt = Date.now();
-        } catch (_) {
-            stopAutoClipboardPolling();
-            updateDesktopComfortUi('permission');
-        }
-    }
-
-    function handleIncomingClipboardMessage(raw) {
-        const message = normalizeIncomingMessage(raw);
-        const text = findClipboardPayload(message);
-        if (text != null) receiveRemoteClipboardText(text);
-    }
-
     function handleIncomingServerMessage(raw) {
         if (handleIncomingAlternativeUserSessionsMessage(raw)) return true;
-        handleIncomingClipboardMessage(raw);
         return false;
     }
 
     function installIncomingServerHook() {
         const server = window.meshserver;
-        if (!server || incomingClipboardHookTarget === server) return;
+        if (!server || incomingServerHookTarget === server) return;
 
-        incomingClipboardHookTarget = server;
+        incomingServerHookTarget = server;
 
         const originalOnMessage = server.onmessage;
         server.onmessage = function () {
@@ -2271,94 +2087,14 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     }
 
-    function installIncomingClipboardHook() {
-        installIncomingServerHook();
-    }
-
-    async function pollLocalClipboard() {
-        const nodeId = getCurrentNodeId();
-        if (!nodeId || !isAutoClipboardEnabled(nodeId) || document.hidden || !document.hasFocus()) return;
-        if (!isDesktopConnected()) return;
-        if (!navigator.clipboard || typeof navigator.clipboard.readText !== 'function') return;
-
-        try {
-            const text = await navigator.clipboard.readText();
-            if (!text || text.length > CLIPBOARD_MAX_CHARS) return;
-
-            const now = Date.now();
-            if (nodeId === lastClipboardNodeId && text === lastClipboardText) return;
-            if ((now - lastClipboardSendAt) < CLIPBOARD_MIN_SEND_MS) return;
-
-            if (sendRemoteClipboardText(nodeId, text)) {
-                lastClipboardNodeId = nodeId;
-                lastClipboardText = text;
-                lastClipboardSendAt = now;
-            }
-        } catch (_) {
-            stopAutoClipboardPolling();
-            updateDesktopComfortUi('permission');
-        }
-    }
-
-    function pollRemoteClipboard() {
-        const nodeId = getCurrentNodeId();
-        if (!nodeId || !isAutoClipboardEnabled(nodeId) || document.hidden || !document.hasFocus()) return;
-        if (!isDesktopConnected()) return;
-        installIncomingClipboardHook();
-        requestRemoteClipboardText(nodeId);
-    }
-
-    function startAutoClipboardPolling() {
-        if (clipboardTimer) return;
-        enableNativeAutomaticClipboardIfPresent();
-        installIncomingClipboardHook();
-        clipboardTimer = window.setInterval(pollLocalClipboard, CLIPBOARD_POLL_MS);
-        remoteClipboardTimer = window.setInterval(pollRemoteClipboard, CLIPBOARD_REMOTE_POLL_MS);
-        pollLocalClipboard();
-        pollRemoteClipboard();
-    }
-
-    function stopAutoClipboardPolling() {
-        if (clipboardTimer) {
-            window.clearInterval(clipboardTimer);
-            clipboardTimer = null;
-        }
-        if (remoteClipboardTimer) {
-            window.clearInterval(remoteClipboardTimer);
-            remoteClipboardTimer = null;
-        }
-    }
-
-    function updateDesktopComfortUi(statusMode) {
+    function updateDesktopComfortUi() {
         installConnectDesktopSessionPatch();
-        ensureAutoClipboardButton();
-        ensureAutoClipboardStatus();
         ensureAlternativeSessionButton();
         ensureAlternativeSessionStatus();
         ensureDesktopAudioButton();
 
         const nodeId = getCurrentNodeId();
-        const enabled = isAutoClipboardEnabled(nodeId);
-        const connected = isDesktopConnected();
         const alternativeState = getAlternativeSessionState();
-
-        const button = document.getElementById(AUTO_CLIPBOARD_BUTTON_ID);
-        if (button) {
-            button.classList.toggle('is-active', enabled);
-            button.disabled = !nodeId;
-            button.textContent = enabled ? 'Clipboard auto ON' : 'Clipboard auto';
-        }
-
-        const status = document.getElementById(AUTO_CLIPBOARD_STATUS_ID);
-        if (status) {
-            status.classList.toggle('is-visible', enabled);
-            status.classList.toggle('is-active', enabled && connected && statusMode !== 'permission');
-            if (statusMode === 'permission') {
-                status.textContent = 'Clipboard auto bloque par le navigateur';
-            } else {
-                status.textContent = connected ? 'Clipboard auto bidirectionnel' : 'Clipboard auto en attente';
-            }
-        }
 
         const altSessionButton = document.getElementById(ALT_SESSION_BUTTON_ID);
         if (altSessionButton) {
@@ -2375,12 +2111,6 @@ document.addEventListener('DOMContentLoaded', () => {
             altSessionStatus.textContent = '';
             altSessionStatus.className = 'mc-alt-session-status ' + alternativeState.state;
             altSessionStatus.classList.add('is-hidden');
-        }
-
-        if (enabled && connected) {
-            startAutoClipboardPolling();
-        } else {
-            stopAutoClipboardPolling();
         }
     }
 

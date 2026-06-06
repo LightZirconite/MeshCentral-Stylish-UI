@@ -1210,11 +1210,6 @@ table.table.table-hover.p3usersTable {
     min-width: 0;
 }
 
-#mc-auto-clipboard-toggle {
-    flex: 0 0 auto !important;
-}
-
-.mc-auto-clipboard-status,
 .mc-desktop-comfort-message {
     display: none;
     align-items: center;
@@ -1234,14 +1229,8 @@ table.table.table-hover.p3usersTable {
     vertical-align: middle;
 }
 
-.mc-auto-clipboard-status.is-visible,
 .mc-desktop-comfort-message {
     display: inline-flex;
-}
-
-.mc-auto-clipboard-status.is-active {
-    border-color: rgba(45, 212, 191, 0.58);
-    color: #ccfbf1;
 }
 
 .mc-desktop-comfort-message.warning {
@@ -1285,7 +1274,6 @@ table.table.table-hover.p3usersTable {
 }
 
 #mc-stream-status-badge,
-.mc-auto-clipboard-status,
 .mc-alt-session-status,
 .mc-privacy-freeze-badge {
     flex: 0 1 auto;
