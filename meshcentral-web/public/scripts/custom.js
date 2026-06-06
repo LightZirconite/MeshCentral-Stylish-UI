@@ -714,7 +714,10 @@
     };
 
     const patchCurrentDesktopControllers = () => {
+        patchDesktopController(window.desktop && window.desktop.m);
         patchDesktopController(window.desktop);
+        patchDesktopController(window.webRtcDesktop && window.webRtcDesktop.m);
+        patchDesktopController(window.webRtcDesktop && window.webRtcDesktop.softdesktop && window.webRtcDesktop.softdesktop.m);
         patchDesktopController(window.webRtcDesktop && window.webRtcDesktop.softdesktop);
         patchDesktopController(window.webRtcDesktop);
     };
