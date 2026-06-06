@@ -633,8 +633,6 @@
 // Desktop privacy freeze badge driven by the enhanced MNG_KVM_INPUT_LOCK status byte.
 (() => {
     const BADGE_ID = 'mc-privacy-freeze-badge';
-    const PREVIEW_ID = 'mc-privacy-freeze-preview';
-    const PREVIEW_IMAGE_ID = 'mc-privacy-freeze-preview-image';
     const DESKTOP_STATUS_ID = 'deskstatus';
     const FALLBACK_STATUS_ID = 'p13bottomstatus';
     const MNG_KVM_INPUT_LOCK = 87;
@@ -642,7 +640,6 @@
     const STATUS_PRIVACY_ACTIVE = 0x02;
     const STATUS_FAILED = 0x04;
     let patchTimer = null;
-    let previewTimer = null;
     let lastLocked = false;
 
     const getStatusNode = () => {
@@ -667,66 +664,6 @@
         }
 
         return badge;
-    };
-
-    const getDeskElement = () => {
-        return document.getElementById('Desk') ||
-            document.querySelector('#p14 canvas, #p14 img, #p14 video, canvas[id*="Desk"], img[id*="Desk"]') ||
-            document.querySelector('canvas');
-    };
-
-    const ensurePreview = () => {
-        let preview = document.getElementById(PREVIEW_ID);
-        if (!preview) {
-            preview = document.createElement('div');
-            preview.id = PREVIEW_ID;
-            preview.className = 'mc-privacy-freeze-preview is-hidden';
-            preview.title = 'Apercu du flux distant. Selon Windows 10/11, certaines surfaces Shell comme la barre des taches peuvent se comporter differemment sur l ecran physique.';
-            preview.innerHTML = '<div class="mc-privacy-freeze-preview-head">Apercu distant</div><img id="' + PREVIEW_IMAGE_ID + '" alt="">';
-            document.body.appendChild(preview);
-        }
-        return preview;
-    };
-
-    const updatePreviewFrame = () => {
-        const preview = ensurePreview();
-        const image = document.getElementById(PREVIEW_IMAGE_ID);
-        const source = getDeskElement();
-        if (!preview || !image || !source) return;
-
-        try {
-            if (source.tagName === 'CANVAS') {
-                image.src = source.toDataURL('image/jpeg', 0.72);
-            } else if (source.tagName === 'IMG' && source.currentSrc) {
-                image.src = source.currentSrc;
-            } else if (source.tagName === 'VIDEO') {
-                const canvas = document.createElement('canvas');
-                canvas.width = source.videoWidth || source.clientWidth || 320;
-                canvas.height = source.videoHeight || source.clientHeight || 180;
-                const context = canvas.getContext('2d');
-                context.drawImage(source, 0, 0, canvas.width, canvas.height);
-                image.src = canvas.toDataURL('image/jpeg', 0.72);
-            }
-        } catch (_) {
-            preview.classList.add('has-error');
-        }
-    };
-
-    const setPreviewActive = (active) => {
-        const preview = ensurePreview();
-        if (!preview) return;
-        preview.classList.toggle('is-hidden', !active);
-
-        if (!active) {
-            if (previewTimer) {
-                clearInterval(previewTimer);
-                previewTimer = null;
-            }
-            return;
-        }
-
-        updatePreviewFrame();
-        if (!previewTimer) previewTimer = setInterval(updatePreviewFrame, 900);
     };
 
     const disableRemoteInputAfterUnlock = () => {
@@ -766,7 +703,6 @@
         badge.classList.toggle('is-hidden', !locked);
         badge.classList.toggle('is-ok', locked && !failed && inputBlocked && privacyActive);
         badge.classList.toggle('is-error', locked && failed);
-        setPreviewActive(locked && !failed && privacyActive);
 
         if (lastLocked && !locked) {
             disableRemoteInputAfterUnlock();
@@ -1639,6 +1575,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function ensureDesktopAudioButton() {
+        const existing = document.getElementById(AUDIO_BUTTON_ID);
+        if (existing) existing.remove();
+        return;
+
         if (document.getElementById(AUDIO_BUTTON_ID)) return;
 
         const toolbar = findDesktopToolbar();
@@ -2301,7 +2241,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function updateDesktopComfortUi(statusMode) {
         installConnectDesktopSessionPatch();
-        installDesktopAudioPatch();
         ensureAutoClipboardButton();
         ensureAutoClipboardStatus();
         ensureAlternativeSessionButton();
@@ -2312,7 +2251,6 @@ document.addEventListener('DOMContentLoaded', () => {
         const enabled = isAutoClipboardEnabled(nodeId);
         const connected = isDesktopConnected();
         const alternativeState = getAlternativeSessionState();
-        const audioController = getDesktopAudioController();
 
         const button = document.getElementById(AUTO_CLIPBOARD_BUTTON_ID);
         if (button) {
@@ -2347,16 +2285,6 @@ document.addEventListener('DOMContentLoaded', () => {
             altSessionStatus.textContent = '';
             altSessionStatus.className = 'mc-alt-session-status ' + alternativeState.state;
             altSessionStatus.classList.add('is-hidden');
-        }
-
-        const audioButton = document.getElementById(AUDIO_BUTTON_ID);
-        if (audioButton) {
-            audioButton.disabled = !connected || !audioController;
-            audioButton.classList.toggle('is-active', !!(audioController && audioController._mcAudioEnabled));
-            audioButton.textContent = audioController && audioController._mcAudioEnabled ? 'Audio ON' : 'Audio';
-            audioButton.title = audioController ?
-                'Activer ou arreter le son du bureau distant' :
-                'Connecte le bureau avant d activer l audio';
         }
 
         if (enabled && connected) {
