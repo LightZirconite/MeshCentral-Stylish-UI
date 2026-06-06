@@ -633,6 +633,8 @@
 // Desktop privacy freeze badge driven by the enhanced MNG_KVM_INPUT_LOCK status byte.
 (() => {
     const BADGE_ID = 'mc-privacy-freeze-badge';
+    const PREVIEW_ID = 'mc-privacy-freeze-preview';
+    const PREVIEW_IMAGE_ID = 'mc-privacy-freeze-preview-image';
     const DESKTOP_STATUS_ID = 'deskstatus';
     const FALLBACK_STATUS_ID = 'p13bottomstatus';
     const MNG_KVM_INPUT_LOCK = 87;
@@ -640,6 +642,8 @@
     const STATUS_PRIVACY_ACTIVE = 0x02;
     const STATUS_FAILED = 0x04;
     let patchTimer = null;
+    let previewTimer = null;
+    let lastLocked = false;
 
     const getStatusNode = () => {
         return document.getElementById(DESKTOP_STATUS_ID) || document.getElementById(FALLBACK_STATUS_ID);
@@ -665,6 +669,91 @@
         return badge;
     };
 
+    const getDeskElement = () => {
+        return document.getElementById('Desk') ||
+            document.querySelector('#p14 canvas, #p14 img, #p14 video, canvas[id*="Desk"], img[id*="Desk"]') ||
+            document.querySelector('canvas');
+    };
+
+    const ensurePreview = () => {
+        let preview = document.getElementById(PREVIEW_ID);
+        if (!preview) {
+            preview = document.createElement('div');
+            preview.id = PREVIEW_ID;
+            preview.className = 'mc-privacy-freeze-preview is-hidden';
+            preview.title = 'Apercu du flux distant. Selon Windows 10/11, certaines surfaces Shell comme la barre des taches peuvent se comporter differemment sur l ecran physique.';
+            preview.innerHTML = '<div class="mc-privacy-freeze-preview-head">Apercu distant</div><img id="' + PREVIEW_IMAGE_ID + '" alt="">';
+            document.body.appendChild(preview);
+        }
+        return preview;
+    };
+
+    const updatePreviewFrame = () => {
+        const preview = ensurePreview();
+        const image = document.getElementById(PREVIEW_IMAGE_ID);
+        const source = getDeskElement();
+        if (!preview || !image || !source) return;
+
+        try {
+            if (source.tagName === 'CANVAS') {
+                image.src = source.toDataURL('image/jpeg', 0.72);
+            } else if (source.tagName === 'IMG' && source.currentSrc) {
+                image.src = source.currentSrc;
+            } else if (source.tagName === 'VIDEO') {
+                const canvas = document.createElement('canvas');
+                canvas.width = source.videoWidth || source.clientWidth || 320;
+                canvas.height = source.videoHeight || source.clientHeight || 180;
+                const context = canvas.getContext('2d');
+                context.drawImage(source, 0, 0, canvas.width, canvas.height);
+                image.src = canvas.toDataURL('image/jpeg', 0.72);
+            }
+        } catch (_) {
+            preview.classList.add('has-error');
+        }
+    };
+
+    const setPreviewActive = (active) => {
+        const preview = ensurePreview();
+        if (!preview) return;
+        preview.classList.toggle('is-hidden', !active);
+
+        if (!active) {
+            if (previewTimer) {
+                clearInterval(previewTimer);
+                previewTimer = null;
+            }
+            return;
+        }
+
+        updatePreviewFrame();
+        if (!previewTimer) previewTimer = setInterval(updatePreviewFrame, 900);
+    };
+
+    const disableRemoteInputAfterUnlock = () => {
+        const candidates = Array.from(document.querySelectorAll('input[type="checkbox"],button,input[type="button"],a'));
+        const control = candidates.find((element) => {
+            const label = [
+                element.id,
+                element.name,
+                element.value,
+                element.textContent,
+                element.title,
+                element.getAttribute('aria-label')
+            ].join(' ').toLowerCase();
+            if (label.includes('input lock') || label.includes('saisie a distance') || label.includes('verrouiller')) return false;
+            return /\b(input|entree|entr[eé]e|remote input|clavier souris|souris clavier)\b/.test(label);
+        });
+
+        if (!control) return;
+        if (control.matches('input[type="checkbox"]') && control.checked) {
+            control.click();
+            return;
+        }
+        if (control.getAttribute('aria-pressed') === 'true' || control.classList.contains('active') || control.classList.contains('on') || control.classList.contains('is-active')) {
+            control.click();
+        }
+    };
+
     const setBadgeState = (rawStatus) => {
         const badge = ensureBadge();
         if (!badge) return;
@@ -677,6 +766,12 @@
         badge.classList.toggle('is-hidden', !locked);
         badge.classList.toggle('is-ok', locked && !failed && inputBlocked && privacyActive);
         badge.classList.toggle('is-error', locked && failed);
+        setPreviewActive(locked && !failed && privacyActive);
+
+        if (lastLocked && !locked) {
+            disableRemoteInputAfterUnlock();
+        }
+        lastLocked = locked;
 
         if (!locked) {
             badge.textContent = '';
@@ -685,8 +780,8 @@
             badge.textContent = 'Gel ecran non applique';
             badge.title = 'Le verrouillage ou le gel visuel local a echoue. Ce poste peut voir ou recevoir des entrees localement.';
         } else {
-            badge.textContent = 'Ecran fige actif';
-            badge.title = 'Le clavier, la souris et le gel visuel local sont actifs sur le poste distant.';
+            badge.textContent = 'Ecran fige actif - barre des taches a surveiller';
+            badge.title = 'Le clavier, la souris et le gel visuel local sont actifs. Attention: selon Windows 10/11, la barre des taches et certaines surfaces Shell peuvent rester visibles ou se comporter differemment.';
         }
     };
 
