@@ -1193,8 +1193,6 @@ table.table.table-hover.p3usersTable {
     cursor: not-allowed;
 }
 
-#deskToolsAreaTop:has(.mc-desktop-comfort-button),
-#DeskTools:has(.mc-desktop-comfort-button),
 #p11 .areaHead:has(.mc-desktop-comfort-button),
 #p11title:has(.mc-desktop-comfort-button),
 #deskarea1:has(.mc-desktop-comfort-button) {
@@ -1205,8 +1203,6 @@ table.table.table-hover.p3usersTable {
     min-width: 0 !important;
 }
 
-#deskToolsAreaTop:has(.mc-desktop-comfort-button) > *,
-#DeskTools:has(.mc-desktop-comfort-button) > *,
 #p11 .areaHead:has(.mc-desktop-comfort-button) > *,
 #p11title:has(.mc-desktop-comfort-button) > *,
 #deskarea1:has(.mc-desktop-comfort-button) > * {

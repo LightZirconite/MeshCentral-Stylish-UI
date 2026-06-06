@@ -785,9 +785,37 @@
 // Close the desktop tools drawer if MeshCentral leaves it open by default.
 (() => {
     let attempts = 0;
+    let deskToolsSeen = false;
+    let userInteracted = false;
+    let observer = null;
+    let timer = null;
+
+    const cleanup = () => {
+        if (timer) {
+            clearInterval(timer);
+            timer = null;
+        }
+        if (observer) {
+            observer.disconnect();
+            observer = null;
+        }
+        document.removeEventListener('pointerdown', markUserInteraction, true);
+        document.removeEventListener('keydown', markUserInteraction, true);
+    };
+
+    const markUserInteraction = () => {
+        if (!document.getElementById('DeskTools')) return;
+        userInteracted = true;
+        cleanup();
+    };
+
     const closeDefaultDeskTools = () => {
+        if (userInteracted) return false;
         const tools = document.getElementById('DeskTools');
-        if (tools && tools.dataset.mcDefaultClosed !== '1') {
+        if (!tools) return false;
+
+        deskToolsSeen = true;
+        if (tools && tools.style.display !== 'none') {
             tools.dataset.mcDefaultClosed = '1';
             tools.style.display = 'none';
             return true;
@@ -795,16 +823,28 @@
         return false;
     };
 
-    const timer = setInterval(() => {
-        attempts++;
-        if (closeDefaultDeskTools() || attempts > 40) clearInterval(timer);
+    timer = setInterval(() => {
+        if (document.getElementById('DeskTools')) attempts++;
+        closeDefaultDeskTools();
+        if ((deskToolsSeen && attempts > 40) || userInteracted) cleanup();
     }, 250);
+
+    document.addEventListener('pointerdown', markUserInteraction, true);
+    document.addEventListener('keydown', markUserInteraction, true);
 
     if (document.readyState === 'loading') {
         document.addEventListener('DOMContentLoaded', closeDefaultDeskTools, { once: true });
     } else {
         closeDefaultDeskTools();
     }
+
+    observer = new MutationObserver(closeDefaultDeskTools);
+    observer.observe(document.documentElement, {
+        attributes: true,
+        attributeFilter: ['style', 'class'],
+        childList: true,
+        subtree: true
+    });
 })();
 
 
@@ -1555,12 +1595,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function findDesktopToolbar() {
-        return document.getElementById('deskToolsAreaTop') ||
-            document.getElementById('DeskTools') ||
+        const statusHost = document.getElementById('deskstatus') || document.getElementById('p13bottomstatus');
+        return (statusHost && statusHost.parentElement) ||
             document.querySelector('#p11 .areaHead') ||
             document.getElementById('p11title') ||
             document.getElementById('deskarea1') ||
             document.getElementById('p11');
+    }
+
+    function isInsideDeskTools(element) {
+        return !!(element && element.closest && element.closest('#DeskTools'));
     }
 
     function findConnectButton() {
@@ -1589,10 +1633,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function ensureAutoClipboardButton() {
-        if (document.getElementById(AUTO_CLIPBOARD_BUTTON_ID)) return;
-
         const toolbar = findDesktopToolbar();
         if (!toolbar) return;
+
+        const existing = document.getElementById(AUTO_CLIPBOARD_BUTTON_ID);
+        if (existing) {
+            if (isInsideDeskTools(existing) || existing.parentElement !== toolbar) {
+                toolbar.appendChild(existing);
+            }
+            return;
+        }
 
         const button = document.createElement('button');
         button.id = AUTO_CLIPBOARD_BUTTON_ID;
