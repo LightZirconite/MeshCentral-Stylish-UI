@@ -630,6 +630,110 @@
 })();
 
 
+// Desktop privacy freeze badge driven by the enhanced MNG_KVM_INPUT_LOCK status byte.
+(() => {
+    const BADGE_ID = 'mc-privacy-freeze-badge';
+    const DESKTOP_STATUS_ID = 'deskstatus';
+    const FALLBACK_STATUS_ID = 'p13bottomstatus';
+    const MNG_KVM_INPUT_LOCK = 87;
+    const STATUS_INPUT_BLOCKED = 0x01;
+    const STATUS_PRIVACY_ACTIVE = 0x02;
+    const STATUS_FAILED = 0x04;
+    let patchTimer = null;
+
+    const getStatusNode = () => {
+        return document.getElementById(DESKTOP_STATUS_ID) || document.getElementById(FALLBACK_STATUS_ID);
+    };
+
+    const ensureBadge = () => {
+        const status = getStatusNode();
+        if (!status || !status.parentElement) return null;
+
+        let badge = document.getElementById(BADGE_ID);
+        if (!badge) {
+            badge = document.createElement('span');
+            badge.id = BADGE_ID;
+            badge.className = 'mc-privacy-freeze-badge is-hidden';
+        }
+
+        const streamBadge = document.getElementById('mc-stream-status-badge');
+        const anchor = streamBadge && streamBadge.parentElement === status.parentElement ? streamBadge : status;
+        if (badge.parentElement !== status.parentElement || badge.previousElementSibling !== anchor) {
+            anchor.insertAdjacentElement('afterend', badge);
+        }
+
+        return badge;
+    };
+
+    const setBadgeState = (rawStatus) => {
+        const badge = ensureBadge();
+        if (!badge) return;
+
+        const locked = rawStatus !== 0;
+        const inputBlocked = (rawStatus & STATUS_INPUT_BLOCKED) !== 0;
+        const privacyActive = (rawStatus & STATUS_PRIVACY_ACTIVE) !== 0;
+        const failed = (rawStatus & STATUS_FAILED) !== 0 || (locked && (!inputBlocked || !privacyActive));
+
+        badge.classList.toggle('is-hidden', !locked);
+        badge.classList.toggle('is-ok', locked && !failed && inputBlocked && privacyActive);
+        badge.classList.toggle('is-error', locked && failed);
+
+        if (!locked) {
+            badge.textContent = '';
+            badge.title = '';
+        } else if (failed) {
+            badge.textContent = 'Gel ecran non applique';
+            badge.title = 'Le verrouillage ou le gel visuel local a echoue. Ce poste peut voir ou recevoir des entrees localement.';
+        } else {
+            badge.textContent = 'Ecran fige actif';
+            badge.title = 'Le clavier, la souris et le gel visuel local sont actifs sur le poste distant.';
+        }
+    };
+
+    const patchDesktopController = (desktopController) => {
+        if (!desktopController || desktopController._mcPrivacyFreezePatch === true) return;
+        const originalProcessBinaryCommand = desktopController.ProcessBinaryCommand;
+        if (typeof originalProcessBinaryCommand !== 'function') return;
+
+        desktopController._mcPrivacyFreezePatch = true;
+        desktopController.ProcessBinaryCommand = function (command, commandSize, view) {
+            if (command === MNG_KVM_INPUT_LOCK && commandSize === 5 && view && view.length > 4) {
+                setBadgeState(view[4]);
+            }
+
+            return originalProcessBinaryCommand.apply(this, arguments);
+        };
+
+        const originalStop = desktopController.Stop;
+        if (typeof originalStop === 'function') {
+            desktopController.Stop = function () {
+                setBadgeState(0);
+                return originalStop.apply(this, arguments);
+            };
+        }
+    };
+
+    const patchCurrentDesktopControllers = () => {
+        patchDesktopController(window.desktop);
+        patchDesktopController(window.webRtcDesktop && window.webRtcDesktop.softdesktop);
+        patchDesktopController(window.webRtcDesktop);
+    };
+
+    const start = () => {
+        ensureBadge();
+        patchCurrentDesktopControllers();
+        if (patchTimer) clearInterval(patchTimer);
+        patchTimer = setInterval(patchCurrentDesktopControllers, 500);
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', start, { once: true });
+    } else {
+        start();
+    }
+})();
+
+
 
 // === THEME TOGGLE (AUTO / LIGHT / DARK) ===
 document.addEventListener('DOMContentLoaded', () => {
