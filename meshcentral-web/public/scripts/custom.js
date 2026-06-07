@@ -1546,6 +1546,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const MNG_AUDIO_STOP = 73;
     const MNG_AUDIO_INFO = 74;
 
+    // Temporary diagnostics: set window.__mcAudioDebug = false in the console to silence.
+    const AUDIO_DEBUG = (typeof window !== 'undefined' && window.__mcAudioDebug !== false);
+    function audioLog() {
+        if (window.__mcAudioDebug === false) return;
+        try { console.log.apply(console, ['[mc-audio]'].concat([].slice.call(arguments))); } catch (_) {}
+    }
+
     let pendingAlternativeSessionRequest = null;
     let incomingServerHookTarget = null;
     let comfortObserver = null;
@@ -1822,6 +1829,15 @@ document.addEventListener('DOMContentLoaded', () => {
             this._mcAudioNextTime = Math.max(this._mcAudioContext.currentTime, this._mcAudioNextTime || 0);
             this.send(makeKvmCommand(MNG_AUDIO_START));
             this._mcAudioEnabled = true;
+            this._mcAudioInfoCount = 0;
+            this._mcAudioDataCount = 0;
+            audioLog('START sent', {
+                hasSend: typeof this.send === 'function',
+                hasProcessBinary: typeof this.ProcessBinaryCommand === 'function',
+                patched: this._mcAudioPatch === true,
+                ctxState: this._mcAudioContext && this._mcAudioContext.state,
+                ctxRate: this._mcAudioContext && this._mcAudioContext.sampleRate
+            });
             updateDesktopComfortUi();
             return true;
         };
@@ -1888,11 +1904,23 @@ document.addEventListener('DOMContentLoaded', () => {
         if (typeof originalProcessBinaryCommand === 'function') {
             desktopController.ProcessBinaryCommand = function (command, commandSize, view) {
                 if (command === MNG_AUDIO_INFO) {
+                    this._mcAudioInfoCount = (this._mcAudioInfoCount || 0) + 1;
+                    audioLog('INFO received', { len: view && view.length, n: this._mcAudioInfoCount });
                     this._mcHandleAudioInfo(view);
                     return;
                 }
 
                 if (command === MNG_AUDIO_DATA) {
+                    this._mcAudioDataCount = (this._mcAudioDataCount || 0) + 1;
+                    // Log only the first few + every 100th packet to avoid console spam.
+                    if (this._mcAudioDataCount <= 3 || this._mcAudioDataCount % 100 === 0) {
+                        audioLog('DATA received', {
+                            len: view && view.length,
+                            n: this._mcAudioDataCount,
+                            enabled: this._mcAudioEnabled,
+                            hasCtx: !!this._mcAudioContext
+                        });
+                    }
                     this._mcHandleAudioData(view);
                     return;
                 }
