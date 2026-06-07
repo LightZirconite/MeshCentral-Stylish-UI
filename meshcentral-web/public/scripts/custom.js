@@ -1598,38 +1598,54 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 4200);
     }
 
+    function updateDesktopAudioButtonState(button, controller) {
+        button = button || document.getElementById(AUDIO_BUTTON_ID);
+        if (!button) return;
+        if (controller === undefined) controller = getDesktopAudioController();
+
+        const enabled = !!(controller && controller._mcAudioEnabled);
+        button.textContent = enabled ? 'Audio: on' : 'Audio: off';
+        button.classList.toggle('is-active', enabled);
+        button.disabled = !controller;
+        button.title = !controller
+            ? 'Connectez le bureau pour activer le son'
+            : (enabled ? 'Couper le son du bureau distant' : 'Activer le son du bureau distant');
+    }
+
     function ensureDesktopAudioButton() {
-        const existing = document.getElementById(AUDIO_BUTTON_ID);
-        if (existing) existing.remove();
-        return;
+        // Attach the audio decoder proactively so MNG_AUDIO_INFO/DATA packets are
+        // handled even before the user clicks (the agent sends INFO right at start).
+        const controller = getDesktopAudioController();
 
-        if (document.getElementById(AUDIO_BUTTON_ID)) return;
+        let button = document.getElementById(AUDIO_BUTTON_ID);
+        if (!button) {
+            const toolbar = findDesktopToolbar();
+            if (!toolbar) return;
 
-        const toolbar = findDesktopToolbar();
-        if (!toolbar) return;
+            button = document.createElement('button');
+            button.id = AUDIO_BUTTON_ID;
+            button.type = 'button';
+            button.className = 'mc-desktop-comfort-button';
+            button.addEventListener('click', function () {
+                const ctrl = getDesktopAudioController();
+                if (!ctrl || typeof ctrl.ToggleAudio !== 'function') {
+                    showComfortMessage('Audio indisponible tant que le bureau n est pas connecte.', 'warning');
+                    return;
+                }
 
-        const button = document.createElement('button');
-        button.id = AUDIO_BUTTON_ID;
-        button.type = 'button';
-        button.className = 'mc-desktop-comfort-button';
-        button.textContent = 'Audio';
-        button.title = 'Activer le son du bureau distant';
-        button.addEventListener('click', function () {
-            const controller = getDesktopAudioController();
-            if (!controller || typeof controller.ToggleAudio !== 'function') {
-                showComfortMessage('Audio indisponible tant que le bureau n est pas connecte.', 'warning');
-                return;
-            }
+                if (!ctrl.ToggleAudio()) {
+                    showComfortMessage('Audio indisponible dans ce navigateur.', 'warning');
+                    return;
+                }
 
-            if (!controller.ToggleAudio()) {
-                showComfortMessage('Audio indisponible dans ce navigateur.', 'warning');
-                return;
-            }
+                showComfortMessage(ctrl._mcAudioEnabled ? 'Audio du bureau active.' : 'Audio du bureau arrete.', 'info');
+                updateDesktopAudioButtonState(button, ctrl);
+            });
 
-            showComfortMessage(controller._mcAudioEnabled ? 'Audio du bureau active.' : 'Audio du bureau arrete.', 'info');
-        });
+            toolbar.appendChild(button);
+        }
 
-        toolbar.appendChild(button);
+        updateDesktopAudioButtonState(button, controller);
     }
 
     function ensureAlternativeSessionButton() {
@@ -1733,6 +1749,15 @@ document.addEventListener('DOMContentLoaded', () => {
             window.webRtcDesktop && window.webRtcDesktop.softdesktop
         ];
 
+        // Prefer the controller that can both send commands to the agent and
+        // decode incoming binary packets: start and playback must share one object.
+        for (const candidate of candidates) {
+            if (candidate && typeof candidate.send === 'function' && typeof candidate.ProcessBinaryCommand === 'function') {
+                return attachDesktopAudio(candidate);
+            }
+        }
+
+        // Fallback: attach to whatever desktop-like object is present.
         for (const candidate of candidates) {
             const attached = attachDesktopAudio(candidate);
             if (attached && typeof attached.ToggleAudio === 'function') return attached;
@@ -2088,6 +2113,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateDesktopComfortUi() {
+        installDesktopAudioPatch();
         installConnectDesktopSessionPatch();
         ensureAlternativeSessionButton();
         ensureAlternativeSessionStatus();
