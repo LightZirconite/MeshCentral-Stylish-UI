@@ -1546,10 +1546,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const MNG_AUDIO_STOP = 73;
     const MNG_AUDIO_INFO = 74;
 
-    // Temporary diagnostics: set window.__mcAudioDebug = false in the console to silence.
-    const AUDIO_DEBUG = (typeof window !== 'undefined' && window.__mcAudioDebug !== false);
+    // Audio diagnostics: silent by default. Enable in the console with
+    // window.__mcAudioDebug = true (then reconnect the desktop) to trace packets.
     function audioLog() {
-        if (window.__mcAudioDebug === false) return;
+        if (window.__mcAudioDebug !== true) return;
         try { console.log.apply(console, ['[mc-audio]'].concat([].slice.call(arguments))); } catch (_) {}
     }
 
