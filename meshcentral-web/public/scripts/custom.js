@@ -1540,11 +1540,25 @@ document.addEventListener('DOMContentLoaded', () => {
     const ALT_SESSION_BUTTON_ID = 'mc-alt-session-button';
     const ALT_SESSION_STATUS_ID = 'mc-alt-session-status';
     const ALT_SESSION_DIAG_ID = 'mc-alt-session-diagnostics';
-    const AUDIO_BUTTON_ID = 'mc-desktop-audio-toggle';
+    const AUDIO_BUTTON_ID = 'mc-desktop-audio-toggle'; // system / desktop sound
+    const MIC_BUTTON_ID = 'mc-desktop-mic-toggle';     // remote microphone
     const MNG_AUDIO_DATA = 71;
     const MNG_AUDIO_START = 72;
     const MNG_AUDIO_STOP = 73;
     const MNG_AUDIO_INFO = 74;
+    const MNG_AUDIO_QUALITY = 75;
+
+    const AUDIO_SOURCE_SYSTEM = 0;
+    const AUDIO_SOURCE_MIC = 1;
+
+    // Quality levels: 0=full, 1=mono, 2=half+mono, 3=third+mono, 4=sixth+mono(voice).
+    const AUDIO_QUALITY_MAX = 4;
+    // Per-source defaults: startLevel = quality at start, floorLevel = best the
+    // adaptive loop is allowed to climb back up to.
+    const AUDIO_SOURCE_DEFAULTS = {
+        0: { startLevel: 0, floorLevel: 0, label: 'Audio', title: 'Son du bureau distant (ce que le PC joue)' },
+        1: { startLevel: 3, floorLevel: 2, label: 'Micro', title: 'Microphone du PC distant' }
+    };
 
     // Audio diagnostics: silent by default. Enable in the console with
     // window.__mcAudioDebug = true (then reconnect the desktop) to trace packets.
@@ -1605,54 +1619,60 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 4200);
     }
 
-    function updateDesktopAudioButtonState(button, controller) {
-        button = button || document.getElementById(AUDIO_BUTTON_ID);
-        if (!button) return;
-        if (controller === undefined) controller = getDesktopAudioController();
-
-        const enabled = !!(controller && controller._mcAudioEnabled);
-        button.textContent = enabled ? 'Audio: on' : 'Audio: off';
-        button.classList.toggle('is-active', enabled);
-        button.disabled = !controller;
-        button.title = !controller
-            ? 'Connectez le bureau pour activer le son'
-            : (enabled ? 'Couper le son du bureau distant' : 'Activer le son du bureau distant');
+    function audioSourceEnabled(controller, sourceId) {
+        return !!(controller && controller._mcAudio &&
+            controller._mcAudio.sources[sourceId] &&
+            controller._mcAudio.sources[sourceId].enabled);
     }
 
-    function ensureDesktopAudioButton() {
-        // Attach the audio decoder proactively so MNG_AUDIO_INFO/DATA packets are
-        // handled even before the user clicks (the agent sends INFO right at start).
+    function updateAudioButtonState(button, controller, sourceId) {
+        if (!button) return;
+        const def = AUDIO_SOURCE_DEFAULTS[sourceId];
+        const enabled = audioSourceEnabled(controller, sourceId);
+        button.textContent = enabled ? (def.label + ' •') : def.label;
+        button.classList.toggle('is-active', enabled);
+        button.disabled = !controller;
+        button.title = !controller ? 'Connectez le bureau pour activer le son' : def.title;
+    }
+
+    function ensureAudioButton(buttonId, sourceId) {
+        // Attaching the controller also installs the decoder, so INFO/DATA packets
+        // are handled even before the user clicks.
         const controller = getDesktopAudioController();
 
-        let button = document.getElementById(AUDIO_BUTTON_ID);
+        let button = document.getElementById(buttonId);
         if (!button) {
             const toolbar = findDesktopToolbar();
             if (!toolbar) return;
 
             button = document.createElement('button');
-            button.id = AUDIO_BUTTON_ID;
+            button.id = buttonId;
             button.type = 'button';
             button.className = 'mc-desktop-comfort-button';
             button.addEventListener('click', function () {
                 const ctrl = getDesktopAudioController();
-                if (!ctrl || typeof ctrl.ToggleAudio !== 'function') {
+                if (!ctrl || typeof ctrl.ToggleAudioSource !== 'function') {
                     showComfortMessage('Audio indisponible tant que le bureau n est pas connecte.', 'warning');
                     return;
                 }
-
-                if (!ctrl.ToggleAudio()) {
+                if (!ctrl.ToggleAudioSource(sourceId)) {
                     showComfortMessage('Audio indisponible dans ce navigateur.', 'warning');
                     return;
                 }
-
-                showComfortMessage(ctrl._mcAudioEnabled ? 'Audio du bureau active.' : 'Audio du bureau arrete.', 'info');
-                updateDesktopAudioButtonState(button, ctrl);
+                const on = audioSourceEnabled(ctrl, sourceId);
+                showComfortMessage(AUDIO_SOURCE_DEFAULTS[sourceId].label + (on ? ' active.' : ' arrete.'), 'info');
+                updateAudioButtonState(button, ctrl, sourceId);
             });
 
             toolbar.appendChild(button);
         }
 
-        updateDesktopAudioButtonState(button, controller);
+        updateAudioButtonState(button, controller, sourceId);
+    }
+
+    function ensureDesktopAudioButton() {
+        ensureAudioButton(AUDIO_BUTTON_ID, AUDIO_SOURCE_SYSTEM);
+        ensureAudioButton(MIC_BUTTON_ID, AUDIO_SOURCE_MIC);
     }
 
     function ensureAlternativeSessionButton() {
@@ -1767,14 +1787,18 @@ document.addEventListener('DOMContentLoaded', () => {
         // Fallback: attach to whatever desktop-like object is present.
         for (const candidate of candidates) {
             const attached = attachDesktopAudio(candidate);
-            if (attached && typeof attached.ToggleAudio === 'function') return attached;
+            if (attached && typeof attached.ToggleAudioSource === 'function') return attached;
         }
 
         return null;
     }
 
-    function makeKvmCommand(command) {
-        return String.fromCharCode(0x00, command, 0x00, 0x04);
+    function makeKvmCmd(command, payload) {
+        payload = payload || [];
+        const size = 4 + payload.length;
+        let s = String.fromCharCode(0x00, command & 0xff, (size >> 8) & 0xff, size & 0xff);
+        for (let i = 0; i < payload.length; i++) s += String.fromCharCode(payload[i] & 0xff);
+        return s;
     }
 
     function installDesktopAudioPatch() {
@@ -1809,74 +1833,124 @@ document.addEventListener('DOMContentLoaded', () => {
         window.connectDesktop._mcSessionPatch = true;
     }
 
+    function makeSourceState(sourceId) {
+        return {
+            sourceId: sourceId,
+            enabled: false,
+            level: AUDIO_SOURCE_DEFAULTS[sourceId].startLevel,
+            sampleRate: 48000,
+            channels: 2,
+            bits: 16,
+            nextTime: 0,
+            underruns: 0,
+            window: 0,
+            lastDowngradeTs: 0
+        };
+    }
+
     function attachDesktopAudio(desktopController) {
         if (!desktopController || desktopController._mcAudioPatch) return desktopController;
-
         desktopController._mcAudioPatch = true;
-        desktopController._mcAudioEnabled = false;
-        desktopController._mcAudioSampleRate = 48000;
-        desktopController._mcAudioChannels = 2;
-        desktopController._mcAudioBits = 16;
-        desktopController._mcAudioNextTime = 0;
 
-        desktopController.StartAudio = function () {
+        const A = desktopController._mcAudio = {
+            ctx: null,
+            legacyAgent: false, // true when the agent predates multi-source (INFO < 13 bytes)
+            sources: { 0: makeSourceState(AUDIO_SOURCE_SYSTEM), 1: makeSourceState(AUDIO_SOURCE_MIC) }
+        };
+
+        function ensureCtx() {
             const AudioContextClass = window.AudioContext || window.webkitAudioContext;
-            if (!AudioContextClass || typeof this.send !== 'function') return false;
+            if (!AudioContextClass) return null;
+            if (!A.ctx) A.ctx = new AudioContextClass();
+            if (A.ctx.state === 'suspended') A.ctx.resume();
+            return A.ctx;
+        }
 
-            if (!this._mcAudioContext) this._mcAudioContext = new AudioContextClass();
-            if (this._mcAudioContext.state === 'suspended') this._mcAudioContext.resume();
+        // Adaptive bitrate: react to playback-buffer underruns (a proxy for a
+        // struggling connection), exactly like the image quality adapts.
+        function adaptQuality(controller, sourceId, st) {
+            if (++st.window < 100) return;
+            const now = (A.ctx && A.ctx.currentTime) || 0;
+            const underruns = st.underruns;
+            st.window = 0;
+            st.underruns = 0;
+            const floor = AUDIO_SOURCE_DEFAULTS[sourceId].floorLevel;
+            if (underruns >= 3 && st.level < AUDIO_QUALITY_MAX) {
+                st.level++;
+                st.lastDowngradeTs = now;
+                controller.send(makeKvmCmd(MNG_AUDIO_QUALITY, [sourceId, st.level]));
+                audioLog('quality DOWN', { source: sourceId, level: st.level, underruns: underruns });
+            } else if (underruns === 0 && st.level > floor && (now - (st.lastDowngradeTs || 0)) > 12) {
+                st.level--;
+                controller.send(makeKvmCmd(MNG_AUDIO_QUALITY, [sourceId, st.level]));
+                audioLog('quality UP', { source: sourceId, level: st.level });
+            }
+        }
 
-            this._mcAudioNextTime = Math.max(this._mcAudioContext.currentTime, this._mcAudioNextTime || 0);
-            this.send(makeKvmCommand(MNG_AUDIO_START));
-            this._mcAudioEnabled = true;
-            this._mcAudioInfoCount = 0;
-            this._mcAudioDataCount = 0;
-            audioLog('START sent', {
-                hasSend: typeof this.send === 'function',
-                hasProcessBinary: typeof this.ProcessBinaryCommand === 'function',
-                patched: this._mcAudioPatch === true,
-                ctxState: this._mcAudioContext && this._mcAudioContext.state,
-                ctxRate: this._mcAudioContext && this._mcAudioContext.sampleRate
-            });
+        desktopController.StartAudioSource = function (sourceId) {
+            if (typeof this.send !== 'function') return false;
+            const st = A.sources[sourceId];
+            if (!st) return false;
+            const ctx = ensureCtx();
+            if (!ctx) return false;
+            st.enabled = true;
+            st.level = AUDIO_SOURCE_DEFAULTS[sourceId].startLevel;
+            st.nextTime = ctx.currentTime;
+            st.underruns = 0;
+            st.window = 0;
+            st.lastDowngradeTs = 0;
+            this.send(makeKvmCmd(MNG_AUDIO_START, [sourceId, st.level]));
+            audioLog('START sent', { source: sourceId, level: st.level, ctxState: ctx.state, ctxRate: ctx.sampleRate });
             updateDesktopComfortUi();
             return true;
         };
 
-        desktopController.StopAudio = function () {
-            if (typeof this.send === 'function') this.send(makeKvmCommand(MNG_AUDIO_STOP));
-            this._mcAudioEnabled = false;
-            this._mcAudioNextTime = 0;
+        desktopController.StopAudioSource = function (sourceId) {
+            const st = A.sources[sourceId];
+            if (!st) return false;
+            if (typeof this.send === 'function') this.send(makeKvmCmd(MNG_AUDIO_STOP, [sourceId, 0]));
+            st.enabled = false;
+            st.nextTime = 0;
             updateDesktopComfortUi();
             return true;
         };
 
-        desktopController.ToggleAudio = function () {
-            return this._mcAudioEnabled ? this.StopAudio() : this.StartAudio();
+        desktopController.ToggleAudioSource = function (sourceId) {
+            const st = A.sources[sourceId];
+            if (!st) return false;
+            return st.enabled ? this.StopAudioSource(sourceId) : this.StartAudioSource(sourceId);
         };
 
         desktopController._mcHandleAudioInfo = function (view) {
             if (!view || view.length < 12) return;
-
             const sampleRate = ((view[4] << 24) | (view[5] << 16) | (view[6] << 8) | view[7]) >>> 0;
             const channels = (view[8] << 8) | view[9];
             const bits = (view[10] << 8) | view[11];
-
-            if (sampleRate >= 8000 && sampleRate <= 384000) this._mcAudioSampleRate = sampleRate;
-            if (channels >= 1 && channels <= 8) this._mcAudioChannels = channels;
-            if (bits === 16) this._mcAudioBits = bits;
+            A.legacyAgent = (view.length < 13);
+            const sourceId = A.legacyAgent ? AUDIO_SOURCE_SYSTEM : view[12];
+            const st = A.sources[sourceId];
+            if (!st) return;
+            if (sampleRate >= 8000 && sampleRate <= 384000) st.sampleRate = sampleRate;
+            if (channels >= 1 && channels <= 8) st.channels = channels;
+            if (bits === 16) st.bits = bits;
+            audioLog('INFO', { source: sourceId, rate: st.sampleRate, ch: st.channels });
         };
 
         desktopController._mcHandleAudioData = function (view) {
-            if (!this._mcAudioEnabled || !this._mcAudioContext || !view || view.length <= 8) return;
-            if (this._mcAudioBits !== 16) return;
+            if (!view || view.length <= 8) return;
+            const ctx = A.ctx;
+            if (!ctx) return;
+            // Legacy agents put a timestamp at bytes 4-7 (no sourceId); always source 0.
+            const sourceId = A.legacyAgent ? AUDIO_SOURCE_SYSTEM : view[4];
+            const st = A.sources[sourceId];
+            if (!st || !st.enabled || st.bits !== 16) return;
 
-            const channels = Math.max(1, Math.min(8, this._mcAudioChannels || 2));
+            const channels = Math.max(1, Math.min(8, st.channels || 2));
             const frameCount = Math.floor((view.length - 8) / (channels * 2));
             if (frameCount <= 0) return;
 
-            const audioBuffer = this._mcAudioContext.createBuffer(channels, frameCount, this._mcAudioSampleRate || 48000);
+            const audioBuffer = ctx.createBuffer(channels, frameCount, st.sampleRate || 48000);
             let offset = 8;
-
             for (let frame = 0; frame < frameCount; frame++) {
                 for (let channel = 0; channel < channels; channel++) {
                     const low = view[offset++];
@@ -1887,44 +1961,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            const source = this._mcAudioContext.createBufferSource();
+            const source = ctx.createBufferSource();
             source.buffer = audioBuffer;
-            source.connect(this._mcAudioContext.destination);
+            source.connect(ctx.destination); // multiple sources mix on the shared output
 
-            const startAt = Math.max(this._mcAudioContext.currentTime + 0.02, this._mcAudioNextTime || 0);
+            // Falling behind realtime since the last packet = congestion signal.
+            if (((st.nextTime || 0) - ctx.currentTime) < 0) st.underruns++;
+            const startAt = Math.max(ctx.currentTime + 0.02, st.nextTime || 0);
             source.start(startAt);
-            this._mcAudioNextTime = startAt + audioBuffer.duration;
+            st.nextTime = startAt + audioBuffer.duration;
+            if ((st.nextTime - ctx.currentTime) > 1.5) st.nextTime = ctx.currentTime + 0.2;
 
-            if ((this._mcAudioNextTime - this._mcAudioContext.currentTime) > 1.5) {
-                this._mcAudioNextTime = this._mcAudioContext.currentTime + 0.2;
-            }
+            adaptQuality(this, sourceId, st);
         };
 
         const originalProcessBinaryCommand = desktopController.ProcessBinaryCommand;
         if (typeof originalProcessBinaryCommand === 'function') {
             desktopController.ProcessBinaryCommand = function (command, commandSize, view) {
-                if (command === MNG_AUDIO_INFO) {
-                    this._mcAudioInfoCount = (this._mcAudioInfoCount || 0) + 1;
-                    audioLog('INFO received', { len: view && view.length, n: this._mcAudioInfoCount });
-                    this._mcHandleAudioInfo(view);
-                    return;
-                }
-
-                if (command === MNG_AUDIO_DATA) {
-                    this._mcAudioDataCount = (this._mcAudioDataCount || 0) + 1;
-                    // Log only the first few + every 100th packet to avoid console spam.
-                    if (this._mcAudioDataCount <= 3 || this._mcAudioDataCount % 100 === 0) {
-                        audioLog('DATA received', {
-                            len: view && view.length,
-                            n: this._mcAudioDataCount,
-                            enabled: this._mcAudioEnabled,
-                            hasCtx: !!this._mcAudioContext
-                        });
-                    }
-                    this._mcHandleAudioData(view);
-                    return;
-                }
-
+                if (command === MNG_AUDIO_INFO) { this._mcHandleAudioInfo(view); return; }
+                if (command === MNG_AUDIO_DATA) { this._mcHandleAudioData(view); return; }
                 return originalProcessBinaryCommand.apply(this, arguments);
             };
         }
@@ -1932,7 +1987,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const originalStop = desktopController.Stop;
         if (typeof originalStop === 'function') {
             desktopController.Stop = function () {
-                if (this._mcAudioEnabled) this.StopAudio();
+                A.sources[0].enabled = false;
+                A.sources[1].enabled = false;
                 return originalStop.apply(this, arguments);
             };
         }
