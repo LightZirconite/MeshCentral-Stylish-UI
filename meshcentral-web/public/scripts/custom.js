@@ -1925,3 +1925,79 @@ document.addEventListener('DOMContentLoaded', () => {
     startQrCodeObserver();
   }
 })();
+
+// ====== Quick wins: chat confirmation + clearer power-action labels ======
+(function () {
+    'use strict';
+
+    function escHtml(s) {
+        return String(s).replace(/[&<>"']/g, function (c) {
+            return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c];
+        });
+    }
+
+    // --- 1) Confirmation before opening a chat window on the remote machine ---
+    // deviceChat() opens a messenger window AND makes a chat popup appear on the
+    // remote user's screen. That is intrusive, so ask the operator to confirm first.
+    function patchDeviceChat() {
+        if (typeof window.deviceChat !== 'function') return false;
+        if (window.deviceChat.__mcWrapped) return true;
+        const orig = window.deviceChat;
+        const wrapped = function (e) {
+            if (window.xxdialogMode) return; // a dialog is already open
+            if (typeof window.setDialogMode !== 'function') { orig.call(window, e); return; }
+            const node = window.currentNode;
+            const name = (node && node.name) ? node.name : 'cet ordinateur';
+            // dialogclose() calls setDialogMode() (which clears xxdialogMode) BEFORE
+            // invoking this OK callback, so the original guard won't block us and we
+            // stay inside the user-gesture chain (so the popup window is allowed).
+            window.setDialogMode(2, 'Ouvrir le chat', 3, function () { orig.call(window, e); },
+                'Ouvrir une fenêtre de discussion avec <b>' + escHtml(name) + '</b> ?<br><br>' +
+                'Une fenêtre de chat va s’afficher sur l’écran de l’utilisateur distant.');
+        };
+        wrapped.__mcWrapped = true;
+        window.deviceChat = wrapped;
+        return true;
+    }
+
+    // --- 2) Relabel the "Reset" power action (value 3) ---
+    // actiontype 3 performs an immediate forced reboot, not a factory reset; the
+    // French translation "Réinitialiser" is misleading. Make the effect explicit.
+    const RESET_LABEL = 'Redémarrer (forcé)';
+    function relabelResetOption() {
+        const opt = document.querySelector('#d2deviceop option[value="3"]');
+        if (opt && opt.textContent !== RESET_LABEL) {
+            opt.textContent = RESET_LABEL;
+            opt.title = 'Redémarre immédiatement l’ordinateur distant (équivaut au bouton reset matériel).';
+        }
+    }
+
+    let pending = null;
+    function tick() {
+        patchDeviceChat();
+        relabelResetOption();
+    }
+    function scheduleTick() {
+        window.clearTimeout(pending);
+        pending = window.setTimeout(tick, 150);
+    }
+
+    function init() {
+        tick();
+        const obs = new MutationObserver(scheduleTick);
+        obs.observe(document.body, { childList: true, subtree: true });
+        // deviceChat is defined in the core inline script; a few early retries cover
+        // any race where this file runs before the core script has finished.
+        let n = 0;
+        const iv = window.setInterval(function () {
+            tick();
+            if (++n >= 20) window.clearInterval(iv);
+        }, 250);
+    }
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
