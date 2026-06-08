@@ -1965,11 +1965,72 @@ document.addEventListener('DOMContentLoaded', () => {
     // French translation "Réinitialiser" is misleading. Make the effect explicit.
     const RESET_LABEL = 'Redémarrer (forcé)';
     function relabelResetOption() {
-        const opt = document.querySelector('#d2deviceop option[value="3"]');
+        const sel = document.querySelector('#d2deviceop');
+        if (!sel) return;
+        // The power-action dropdown and the notification dropdown share this id.
+        // Only the power dropdown has a Sleep option (value 4); guard on it so we
+        // never rename the notification dialog's "Alert Box" (also value 3).
+        if (!sel.querySelector('option[value="4"]')) return;
+        const opt = sel.querySelector('option[value="3"]');
         if (opt && opt.textContent !== RESET_LABEL) {
             opt.textContent = RESET_LABEL;
             opt.title = 'Redémarre immédiatement l’ordinateur distant (équivaut au bouton reset matériel).';
         }
+    }
+
+    // --- 5) Streamline the device notification dialog ---
+    // deviceToastFunction() offers Toast / Message Box / Alert Box and only
+    // requires a message. Drop "Message Box" (keep Toast + Alert Box), hide the
+    // now-irrelevant timeout, and make both title and message mandatory.
+    function enhanceNotificationDialog() {
+        const title = document.getElementById('dp2notifyTitle');
+        const msg = document.getElementById('d2notifyMsg');
+        const sel = document.getElementById('d2deviceop');
+        if (!title || !msg || !sel) return; // dp2notifyTitle is unique to this dialog
+        if (title.__mcNotifyEnhanced) return;
+        title.__mcNotifyEnhanced = true;
+
+        // Keep Toast (2) + Alert Box (3); remove Message Box (1).
+        const mb = sel.querySelector('option[value="1"]');
+        if (mb) mb.remove();
+        if (sel.value === '1' || sel.value === '') sel.value = '2'; // default to Toast
+
+        // The timeout only applied to Message Box notifications.
+        const to = document.getElementById('d2notifyTimeout');
+        if (to) to.style.display = 'none';
+
+        // Signal that both fields are required, then gate the OK button on them.
+        title.placeholder = 'Titre (obligatoire)';
+        if (!msg.placeholder) msg.placeholder = 'Message (obligatoire)';
+
+        const updateOk = function () {
+            const ok = document.getElementById('idx_dlgOkButton');
+            if (!ok) return;
+            const ready = title.value.trim().length > 0 && msg.value.trim().length > 0;
+            ok.disabled = !ready;
+            ok.style.opacity = ready ? '' : '0.5';
+        };
+        title.addEventListener('input', updateOk);
+        msg.addEventListener('input', updateOk);
+        updateOk();
+    }
+
+    // Safety net: the OK callback fires after the dialog has already closed, so
+    // gating is the real guard, but also refuse to send if either field is empty
+    // (covers the Enter-key path). Must be wrapped before any dialog opens.
+    function patchDeviceToastEx() {
+        if (typeof window.deviceToastFunctionEx !== 'function') return false;
+        if (window.deviceToastFunctionEx.__mcWrapped) return true;
+        const orig = window.deviceToastFunctionEx;
+        const wrapped = function () {
+            const t = document.getElementById('dp2notifyTitle');
+            const m = document.getElementById('d2notifyMsg');
+            if (t && m && (t.value.trim() === '' || m.value.trim() === '')) return;
+            return orig.apply(this, arguments);
+        };
+        wrapped.__mcWrapped = true;
+        window.deviceToastFunctionEx = wrapped;
+        return true;
     }
 
     // --- 3) Default the Windows terminal to PowerShell instead of cmd ---
@@ -2003,7 +2064,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function tick() {
         patchDeviceChat();
         patchConnectTerminal();
+        patchDeviceToastEx();
         relabelResetOption();
+        enhanceNotificationDialog();
     }
     function scheduleTick() {
         window.clearTimeout(pending);
