@@ -1972,9 +1972,37 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // --- 3) Default the Windows terminal to PowerShell instead of cmd ---
+    // Core defaults to protocol 1 (Admin Shell = cmd on Windows). For Windows
+    // agents (agent.id 1-4, same test the core uses for its Shift->PowerShell
+    // switch) default to protocol 6 (Admin PowerShell). Classic cmd stays
+    // available through the terminal connect button's right-click context menu.
+    function patchConnectTerminal() {
+        if (typeof window.connectTerminal !== 'function') return false;
+        if (window.connectTerminal.__mcWrapped) return true;
+        const orig = window.connectTerminal;
+        const wrapped = function (e, contype, options) {
+            try {
+                const n = window.currentNode;
+                const isWin = n && n.agent && (n.agent.id >= 1) && (n.agent.id <= 4);
+                // Only when no explicit protocol was requested (i.e. the plain
+                // Connect button, not the context-menu shell choices).
+                if (contype !== 2 && isWin && (!options || typeof options.protocol !== 'number')) {
+                    options = options || {};
+                    options.protocol = 6; // Admin PowerShell
+                }
+            } catch (_) {}
+            return orig.call(this, e, contype, options);
+        };
+        wrapped.__mcWrapped = true;
+        window.connectTerminal = wrapped;
+        return true;
+    }
+
     let pending = null;
     function tick() {
         patchDeviceChat();
+        patchConnectTerminal();
         relabelResetOption();
     }
     function scheduleTick() {
@@ -1982,17 +2010,31 @@ document.addEventListener('DOMContentLoaded', () => {
         pending = window.setTimeout(tick, 150);
     }
 
+    // --- 4) Auto-refresh the Services list while its panel is open ---
+    // The Tools panel never refreshes on its own; poll the services tab so the
+    // displayed state stays current. Only fires when the panel is visible and
+    // the Services tab is the active one, so it adds no load otherwise.
+    function autoRefreshServices() {
+        try {
+            const dt = document.getElementById('DeskTools');
+            if (!dt || window.getComputedStyle(dt).display === 'none') return;
+            if (window.deskToolTabSelection !== 1) return; // Services tab only
+            if (typeof window.refreshDeskTools === 'function') window.refreshDeskTools(1);
+        } catch (_) {}
+    }
+
     function init() {
         tick();
         const obs = new MutationObserver(scheduleTick);
         obs.observe(document.body, { childList: true, subtree: true });
-        // deviceChat is defined in the core inline script; a few early retries cover
+        // Core functions live in the inline script; a few early retries cover
         // any race where this file runs before the core script has finished.
         let n = 0;
         const iv = window.setInterval(function () {
             tick();
             if (++n >= 20) window.clearInterval(iv);
         }, 250);
+        window.setInterval(autoRefreshServices, 5000);
     }
 
     if (document.readyState === 'loading') {
