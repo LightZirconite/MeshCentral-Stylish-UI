@@ -744,9 +744,19 @@
         if (typeof window.deskInputLockFunction !== 'function' || window.deskInputLockFunction._mcPrivacyModePatch) return;
 
         const original = window.deskInputLockFunction;
+        const sendSelectedPrivacyMode = () => {
+            const selected = document.querySelector('input[name="mcPrivacyMode"]:checked');
+            const mode = selected ? Number(selected.value) : 1;
+            try {
+                if (window.desktop && window.desktop.State === 3 && window.desktop.m) {
+                    window.desktop.m.SendRemoteInputLock(mode);
+                }
+            } catch (_) {}
+        };
+
         window.deskInputLockFunction = function (value) {
             if (value !== 1) return original.apply(this, arguments);
-            if (window.xxdialogMode || !window.desktop || window.desktop.State !== 3 || typeof window.setDialogMode !== 'function') return;
+            if (window.xxdialogMode || !window.desktop || window.desktop.State !== 3) return;
 
             const body = [
                 '<div>Choisissez ce que la personne devant le poste verra pendant le verrouillage :</div>',
@@ -760,15 +770,20 @@
                 '</div>'
             ].join('');
 
-            window.setDialogMode(2, 'Verrouillage de la saisie distante', 3, function () {
-                const selected = document.querySelector('input[name="mcPrivacyMode"]:checked');
-                const mode = selected ? Number(selected.value) : 1;
-                try {
-                    if (window.desktop && window.desktop.State === 3 && window.desktop.m) {
-                        window.desktop.m.SendRemoteInputLock(mode);
-                    }
-                } catch (_) {}
-            }, body);
+            // Modern UI (default3.handlebars) uses the Bootstrap modal helpers.
+            if (typeof window.setModalContent === 'function' && typeof window.showModal === 'function') {
+                window.setModalContent('xxAddAgent', 'Verrouillage de la saisie distante', body);
+                window.showModal('xxAddAgentModal', 'idx_dlgOkButton', sendSelectedPrivacyMode);
+                return;
+            }
+
+            // Legacy UI uses the historical setDialogMode helper.
+            if (typeof window.setDialogMode === 'function') {
+                window.setDialogMode(2, 'Verrouillage de la saisie distante', 3, sendSelectedPrivacyMode, body);
+                return;
+            }
+
+            console.error('MeshCentral privacy mode dialog helpers are unavailable.');
         };
         window.deskInputLockFunction._mcPrivacyModePatch = true;
     };
