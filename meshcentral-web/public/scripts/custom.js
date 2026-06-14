@@ -729,14 +729,14 @@
             badge.textContent = '';
             badge.title = '';
         } else if (failed) {
-            badge.textContent = 'Gel ecran non applique';
-            badge.title = 'Le verrouillage ou le gel visuel local a echoue. Ce poste peut voir ou recevoir des entrees localement.';
+            badge.textContent = 'Privacy screen failed';
+            badge.title = 'The local input lock or privacy screen failed. The person at the computer may still see the desktop or provide local input.';
         } else if (maintenanceActive) {
-            badge.textContent = 'Ecran de maintenance actif';
-            badge.title = 'Le clavier et la souris sont bloques et un ecran local de maintenance a distance est affiche. Cet ecran reste invisible dans le flux distant.';
+            badge.textContent = 'Maintenance screen active';
+            badge.title = 'The local keyboard and mouse are blocked and the maintenance page is visible locally. It remains hidden from the remote desktop stream.';
         } else {
-            badge.textContent = 'Ecran initial fige actif';
-            badge.title = 'Le clavier, la souris et le gel visuel local sont actifs. Les reverrouillages de cette session reutilisent la capture initiale.';
+            badge.textContent = 'Initial screen freeze active';
+            badge.title = 'The local keyboard, mouse and privacy freeze are active. Relocking during this session always restores the initial captured image.';
         }
     };
 
@@ -759,27 +759,27 @@
             if (window.xxdialogMode || !window.desktop || window.desktop.State !== 3) return;
 
             const body = [
-                '<div>Choisissez ce que la personne devant le poste verra pendant le verrouillage :</div>',
+                '<div>Choose what the person at the computer will see while local input is locked:</div>',
                 '<div class="form-check mt-3">',
                 '<input class="form-check-input" type="radio" name="mcPrivacyMode" id="mcPrivacyFreeze" value="1" checked>',
-                '<label class="form-check-label" for="mcPrivacyFreeze"><strong>Figer l ecran initial</strong><br><small>La premiere image gelee de cette session reste immuable. Tous les reverrouillages reutilisent exactement cette image, meme si le bureau a change entre-temps.</small></label>',
+                '<label class="form-check-label" for="mcPrivacyFreeze"><strong>Freeze the initial screen</strong><br><small>The first image captured during this session remains unchanged. Every relock restores exactly this image, even if the desktop has changed.</small></label>',
                 '</div>',
                 '<div class="form-check mt-3">',
                 '<input class="form-check-input" type="radio" name="mcPrivacyMode" id="mcPrivacyMaintenance" value="3">',
-                '<label class="form-check-label" for="mcPrivacyMaintenance"><strong>Page de maintenance plein ecran</strong><br><small>Affiche localement une page plein ecran controlee par l agent. Elle est invisible dans le flux distant et disparait automatiquement au deverrouillage.</small></label>',
+                '<label class="form-check-label" for="mcPrivacyMaintenance"><strong>Full-screen maintenance page</strong><br><small>Displays the agent-controlled maintenance page across the local screens. It stays hidden from the remote stream and closes automatically when unlocked.</small></label>',
                 '</div>'
             ].join('');
 
             // Modern UI (default3.handlebars) uses the Bootstrap modal helpers.
             if (typeof window.setModalContent === 'function' && typeof window.showModal === 'function') {
-                window.setModalContent('xxAddAgent', 'Verrouillage de la saisie distante', body);
+                window.setModalContent('xxAddAgent', 'Local input lock', body);
                 window.showModal('xxAddAgentModal', 'idx_dlgOkButton', sendSelectedPrivacyMode);
                 return;
             }
 
             // Legacy UI uses the historical setDialogMode helper.
             if (typeof window.setDialogMode === 'function') {
-                window.setDialogMode(2, 'Verrouillage de la saisie distante', 3, sendSelectedPrivacyMode, body);
+                window.setDialogMode(2, 'Local input lock', 3, sendSelectedPrivacyMode, body);
                 return;
             }
 
