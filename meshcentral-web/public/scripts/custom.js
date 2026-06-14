@@ -639,6 +639,7 @@
     const STATUS_INPUT_BLOCKED = 0x01;
     const STATUS_PRIVACY_ACTIVE = 0x02;
     const STATUS_FAILED = 0x04;
+    const STATUS_MAINTENANCE = 0x08;
     let patchTimer = null;
     let lastLocked = false;
 
@@ -712,6 +713,7 @@
         const locked = rawStatus !== 0;
         const inputBlocked = (rawStatus & STATUS_INPUT_BLOCKED) !== 0;
         const privacyActive = (rawStatus & STATUS_PRIVACY_ACTIVE) !== 0;
+        const maintenanceActive = (rawStatus & STATUS_MAINTENANCE) !== 0;
         const failed = (rawStatus & STATUS_FAILED) !== 0 || (locked && (!inputBlocked || !privacyActive));
 
         badge.classList.toggle('is-hidden', !locked);
@@ -729,10 +731,46 @@
         } else if (failed) {
             badge.textContent = 'Gel ecran non applique';
             badge.title = 'Le verrouillage ou le gel visuel local a echoue. Ce poste peut voir ou recevoir des entrees localement.';
+        } else if (maintenanceActive) {
+            badge.textContent = 'Ecran de maintenance actif';
+            badge.title = 'Le clavier et la souris sont bloques et un ecran local de maintenance a distance est affiche. Cet ecran reste invisible dans le flux distant.';
         } else {
-            badge.textContent = 'Ecran fige actif - barre des taches a surveiller';
-            badge.title = 'Le clavier, la souris et le gel visuel local sont actifs. Attention: selon Windows 10/11, la barre des taches et certaines surfaces Shell peuvent rester visibles ou se comporter differemment.';
+            badge.textContent = 'Ecran initial fige actif';
+            badge.title = 'Le clavier, la souris et le gel visuel local sont actifs. Les reverrouillages de cette session reutilisent la capture initiale.';
         }
+    };
+
+    const patchInputLockDialog = () => {
+        if (typeof window.deskInputLockFunction !== 'function' || window.deskInputLockFunction._mcPrivacyModePatch) return;
+
+        const original = window.deskInputLockFunction;
+        window.deskInputLockFunction = function (value) {
+            if (value !== 1) return original.apply(this, arguments);
+            if (window.xxdialogMode || !window.desktop || window.desktop.State !== 3 || typeof window.setDialogMode !== 'function') return;
+
+            const body = [
+                '<div>Choisissez ce que la personne devant le poste verra pendant le verrouillage :</div>',
+                '<div class="form-check mt-3">',
+                '<input class="form-check-input" type="radio" name="mcPrivacyMode" id="mcPrivacyFreeze" value="1" checked>',
+                '<label class="form-check-label" for="mcPrivacyFreeze"><strong>Figer l ecran initial</strong><br><small>La premiere image gelee de cette session reste immuable. Tous les reverrouillages reutilisent exactement cette image, meme si le bureau a change entre-temps.</small></label>',
+                '</div>',
+                '<div class="form-check mt-3">',
+                '<input class="form-check-input" type="radio" name="mcPrivacyMode" id="mcPrivacyMaintenance" value="3">',
+                '<label class="form-check-label" for="mcPrivacyMaintenance"><strong>Page de maintenance plein ecran</strong><br><small>Affiche localement une page plein ecran controlee par l agent. Elle est invisible dans le flux distant et disparait automatiquement au deverrouillage.</small></label>',
+                '</div>'
+            ].join('');
+
+            window.setDialogMode(2, 'Verrouillage de la saisie distante', 3, function () {
+                const selected = document.querySelector('input[name="mcPrivacyMode"]:checked');
+                const mode = selected ? Number(selected.value) : 1;
+                try {
+                    if (window.desktop && window.desktop.State === 3 && window.desktop.m) {
+                        window.desktop.m.SendRemoteInputLock(mode);
+                    }
+                } catch (_) {}
+            }, body);
+        };
+        window.deskInputLockFunction._mcPrivacyModePatch = true;
     };
 
     const patchDesktopController = (desktopController) => {
@@ -759,6 +797,7 @@
     };
 
     const patchCurrentDesktopControllers = () => {
+        patchInputLockDialog();
         patchDesktopController(window.desktop && window.desktop.m);
         patchDesktopController(window.desktop);
         patchDesktopController(window.webRtcDesktop && window.webRtcDesktop.m);
@@ -1553,8 +1592,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Per-source defaults: startLevel = quality at start, floorLevel = best the
     // adaptive loop is allowed to climb back up to.
     const AUDIO_SOURCE_DEFAULTS = {
-        0: { startLevel: 0, floorLevel: 0, label: 'Audio', title: 'Son du bureau distant (ce que le PC joue)' },
-        1: { startLevel: 3, floorLevel: 2, label: 'Micro', title: 'Microphone du PC distant' }
+        0: { startLevel: 2, floorLevel: 1, targetLead: 0.08, maxLead: 0.35, label: 'Audio', title: 'Son du bureau distant (ce que le PC joue)' },
+        1: { startLevel: 3, floorLevel: 2, targetLead: 0.06, maxLead: 0.25, label: 'Micro', title: 'Microphone du PC distant' }
     };
 
     // Audio diagnostics: silent by default. Enable in the console with
@@ -1701,8 +1740,10 @@ document.addEventListener('DOMContentLoaded', () => {
             bits: 16,
             nextTime: 0,
             underruns: 0,
+            resyncs: 0,
             window: 0,
-            lastDowngradeTs: 0
+            lastDowngradeTs: 0,
+            pending: new Set()
         };
     }
 
@@ -1730,15 +1771,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (++st.window < 100) return;
             const now = (A.ctx && A.ctx.currentTime) || 0;
             const underruns = st.underruns;
+            const resyncs = st.resyncs;
             st.window = 0;
             st.underruns = 0;
+            st.resyncs = 0;
             const floor = AUDIO_SOURCE_DEFAULTS[sourceId].floorLevel;
-            if (underruns >= 3 && st.level < AUDIO_QUALITY_MAX) {
+            if ((underruns >= 3 || resyncs > 0) && st.level < AUDIO_QUALITY_MAX) {
                 st.level++;
                 st.lastDowngradeTs = now;
                 controller.send(makeKvmCmd(MNG_AUDIO_QUALITY, [sourceId, st.level]));
-                audioLog('quality DOWN', { source: sourceId, level: st.level, underruns: underruns });
-            } else if (underruns === 0 && st.level > floor && (now - (st.lastDowngradeTs || 0)) > 12) {
+                audioLog('quality DOWN', { source: sourceId, level: st.level, underruns: underruns, resyncs: resyncs });
+            } else if (underruns === 0 && resyncs === 0 && st.level > floor && (now - (st.lastDowngradeTs || 0)) > 12) {
                 st.level--;
                 controller.send(makeKvmCmd(MNG_AUDIO_QUALITY, [sourceId, st.level]));
                 audioLog('quality UP', { source: sourceId, level: st.level });
@@ -1755,6 +1798,7 @@ document.addEventListener('DOMContentLoaded', () => {
             st.level = AUDIO_SOURCE_DEFAULTS[sourceId].startLevel;
             st.nextTime = ctx.currentTime;
             st.underruns = 0;
+            st.resyncs = 0;
             st.window = 0;
             st.lastDowngradeTs = 0;
             this.send(makeKvmCmd(MNG_AUDIO_START, [sourceId, st.level]));
@@ -1769,6 +1813,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof this.send === 'function') this.send(makeKvmCmd(MNG_AUDIO_STOP, [sourceId, 0]));
             st.enabled = false;
             st.nextTime = 0;
+            st.pending.forEach(function (node) {
+                try { node.stop(); } catch (_) {}
+            });
+            st.pending.clear();
             updateDesktopComfortUi();
             return true;
         };
@@ -1822,13 +1870,32 @@ document.addEventListener('DOMContentLoaded', () => {
             const source = ctx.createBufferSource();
             source.buffer = audioBuffer;
             source.connect(ctx.destination); // multiple sources mix on the shared output
+            st.pending.add(source);
+            source.onended = function () { st.pending.delete(source); };
 
-            // Falling behind realtime since the last packet = congestion signal.
-            if (((st.nextTime || 0) - ctx.currentTime) < 0) st.underruns++;
-            const startAt = Math.max(ctx.currentTime + 0.02, st.nextTime || 0);
+            const defaults = AUDIO_SOURCE_DEFAULTS[sourceId];
+            let lead = (st.nextTime || 0) - ctx.currentTime;
+
+            // A reliable KVM/WebSocket channel can deliver an old burst after
+            // congestion. Do not play seconds of stale sound: discard queued
+            // nodes and resume with a small bounded jitter buffer.
+            if (lead > defaults.maxLead) {
+                st.pending.forEach(function (node) {
+                    if (node !== source) {
+                        try { node.stop(); } catch (_) {}
+                    }
+                });
+                st.nextTime = ctx.currentTime + defaults.targetLead;
+                st.resyncs++;
+                lead = defaults.targetLead;
+            } else if (lead < -0.01) {
+                st.underruns++;
+                st.nextTime = ctx.currentTime + defaults.targetLead;
+            }
+
+            const startAt = Math.max(ctx.currentTime + 0.015, st.nextTime || (ctx.currentTime + defaults.targetLead));
             source.start(startAt);
             st.nextTime = startAt + audioBuffer.duration;
-            if ((st.nextTime - ctx.currentTime) > 1.5) st.nextTime = ctx.currentTime + 0.2;
 
             adaptQuality(this, sourceId, st);
         };
@@ -1845,8 +1912,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const originalStop = desktopController.Stop;
         if (typeof originalStop === 'function') {
             desktopController.Stop = function () {
-                A.sources[0].enabled = false;
-                A.sources[1].enabled = false;
+                Object.keys(A.sources).forEach(function (sourceId) {
+                    const st = A.sources[sourceId];
+                    st.enabled = false;
+                    st.nextTime = 0;
+                    st.pending.forEach(function (node) {
+                        try { node.stop(); } catch (_) {}
+                    });
+                    st.pending.clear();
+                });
                 return originalStop.apply(this, arguments);
             };
         }
