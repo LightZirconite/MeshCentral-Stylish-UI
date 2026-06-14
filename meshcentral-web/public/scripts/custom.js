@@ -642,6 +642,11 @@
     const STATUS_MAINTENANCE = 0x08;
     let patchTimer = null;
     let lastLocked = false;
+    const previewState = window.__mcPrivacyPreviewState || {
+        locked: false,
+        maintenance: false
+    };
+    window.__mcPrivacyPreviewState = previewState;
 
     const getStatusNode = () => {
         return document.getElementById(DESKTOP_STATUS_ID) || document.getElementById(FALLBACK_STATUS_ID);
@@ -715,6 +720,10 @@
         const privacyActive = (rawStatus & STATUS_PRIVACY_ACTIVE) !== 0;
         const maintenanceActive = (rawStatus & STATUS_MAINTENANCE) !== 0;
         const failed = (rawStatus & STATUS_FAILED) !== 0 || (locked && (!inputBlocked || !privacyActive));
+
+        previewState.locked = locked;
+        previewState.maintenance = maintenanceActive;
+        window.dispatchEvent(new CustomEvent('mc-privacy-state-change'));
 
         badge.classList.toggle('is-hidden', !locked);
         badge.classList.toggle('is-ok', locked && !failed && inputBlocked && privacyActive);
@@ -1593,6 +1602,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     const AUDIO_BUTTON_ID = 'mc-desktop-audio-toggle'; // system / desktop sound
     const MIC_BUTTON_ID = 'mc-desktop-mic-toggle';     // remote microphone
+    const PHYSICAL_VIEW_BUTTON_ID = 'mc-desktop-physical-view-toggle';
+    const MNG_KVM_PRIVACY_VIEW = 86;
     const MNG_AUDIO_DATA = 71;
     const MNG_AUDIO_START = 72;
     const MNG_AUDIO_STOP = 73;
@@ -1619,6 +1630,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     let comfortObserver = null;
+    let physicalViewEnabled = false;
 
     function findDesktopToolbar() {
         const statusHost = document.getElementById('deskstatus') || document.getElementById('p13bottomstatus');
@@ -1699,6 +1711,54 @@ document.addEventListener('DOMContentLoaded', () => {
     function ensureDesktopAudioButton() {
         ensureAudioButton(AUDIO_BUTTON_ID, AUDIO_SOURCE_SYSTEM);
         ensureAudioButton(MIC_BUTTON_ID, AUDIO_SOURCE_MIC);
+        ensurePhysicalViewButton();
+    }
+
+    function updatePhysicalViewButton() {
+        const button = document.getElementById(PHYSICAL_VIEW_BUTTON_ID);
+        if (!button) return;
+        const state = window.__mcPrivacyPreviewState;
+        const available = !!(state && state.locked);
+        if (!available) physicalViewEnabled = false;
+        button.disabled = !available;
+        button.classList.toggle('is-active', physicalViewEnabled);
+        button.textContent = physicalViewEnabled ? 'Physical view •' : 'Physical view';
+        button.title = available ?
+            'Toggle a preview of what is currently displayed on the physical monitors.' :
+            'Available while a freeze or maintenance screen is active.';
+    }
+
+    function ensurePhysicalViewButton() {
+        let button = document.getElementById(PHYSICAL_VIEW_BUTTON_ID);
+        if (!button) {
+            const microphoneButton = document.getElementById(MIC_BUTTON_ID);
+            const toolbar = (microphoneButton && microphoneButton.parentElement) || findDesktopToolbar();
+            if (!toolbar) return;
+
+            button = document.createElement('button');
+            button.id = PHYSICAL_VIEW_BUTTON_ID;
+            button.type = 'button';
+            button.className = 'mc-desktop-comfort-button';
+            button.addEventListener('click', function () {
+                const state = window.__mcPrivacyPreviewState;
+                if (!state || !state.locked) return;
+                const controller = getDesktopAudioController();
+                if (!controller || typeof controller.send !== 'function') return;
+                const nextState = !physicalViewEnabled;
+                controller.send(makeKvmCmd(MNG_KVM_PRIVACY_VIEW, [nextState ? 1 : 0]));
+                physicalViewEnabled = nextState;
+                updatePhysicalViewButton();
+                if (typeof controller.SendRefresh === 'function') {
+                    window.setTimeout(function () { controller.SendRefresh(); }, 100);
+                }
+            });
+            if (microphoneButton && microphoneButton.parentElement === toolbar) {
+                microphoneButton.insertAdjacentElement('afterend', button);
+            } else {
+                toolbar.appendChild(button);
+            }
+        }
+        updatePhysicalViewButton();
     }
 
     function getDesktopAudioController() {
@@ -1964,6 +2024,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.addEventListener('visibilitychange', updateDesktopComfortUi);
         window.addEventListener('focus', updateDesktopComfortUi);
         window.addEventListener('blur', updateDesktopComfortUi);
+        window.addEventListener('mc-privacy-state-change', updatePhysicalViewButton);
         window.setInterval(updateDesktopComfortUi, 2500);
     }
 
