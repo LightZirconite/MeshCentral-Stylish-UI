@@ -17,12 +17,34 @@ type CandidateIdentity = {
   type: BanRecord["type"];
 };
 
+type ExistingBan = CandidateIdentity & {
+  record: BanRecord | null;
+};
+
+type BanGroup = {
+  id: string;
+  keys: string[];
+  types: BanRecord["type"][];
+  firstSeenAt: string;
+  lastSeenAt: string;
+  firstCountry: string;
+  lastCountry: string;
+  ipPrefixHash: string;
+  userAgentHash: string;
+  path: string;
+  expiresAt: string;
+};
+
 const COOKIE_NAME = "meshguard_id";
+const PASS_COOKIE_NAME = "meshguard_fr_ok";
 const ADMIN_COOKIE_NAME = "meshguard_admin";
-const ADMIN_SESSION_SECONDS = 3600;
+const ADMIN_SESSION_SECONDS = 12 * 60 * 60;
 const DEFAULT_ALLOWED_COUNTRY = "FR";
 const DEFAULT_BAN_TTL_SECONDS = 90 * 24 * 60 * 60;
+const DEFAULT_PASS_TTL_SECONDS = 2 * 60 * 60;
+const DEFAULT_BAN_TOUCH_INTERVAL_SECONDS = 15 * 60;
 const MAX_ADMIN_LIST = 500;
+const MAX_GROUP_DELETE_KEYS = 16;
 
 const AGENT_PATHS = new Set([
   "/agent.ashx",
@@ -63,13 +85,24 @@ async function handleRequest(request: Request, env: Env, ctx: ExecutionContext):
   const country = getCountry(request);
   const allowedCountry = (env.ALLOWED_COUNTRY || DEFAULT_ALLOWED_COUNTRY).toUpperCase();
   const banTtlSeconds = parsePositiveInt(env.BAN_TTL_SECONDS, DEFAULT_BAN_TTL_SECONDS);
+  const passTtlSeconds = parsePositiveInt(env.PASS_TTL_SECONDS, DEFAULT_PASS_TTL_SECONDS);
+  const banTouchIntervalSeconds = parsePositiveInt(env.BAN_TOUCH_INTERVAL_SECONDS, DEFAULT_BAN_TOUCH_INTERVAL_SECONDS);
   const cookies = parseCookies(request.headers.get("Cookie"));
   const validCookieId = await verifySignedValue(cookies.get(COOKIE_NAME), env.MESHGUARD_COOKIE_SECRET);
+
+  if (
+    country === allowedCountry &&
+    !validCookieId &&
+    await verifyPassCookie(cookies.get(PASS_COOKIE_NAME), request, env)
+  ) {
+    return fetch(request);
+  }
+
   const candidateKeys = await buildCandidateIdentities(request, env, validCookieId);
   const existingBan = await firstExistingBan(env, candidateKeys);
 
   if (existingBan) {
-    ctx.waitUntil(touchBan(env, existingBan.key, country));
+    ctx.waitUntil(touchBan(env, existingBan, country, banTouchIntervalSeconds));
     return notFound();
   }
 
@@ -80,6 +113,7 @@ async function handleRequest(request: Request, env: Env, ctx: ExecutionContext):
     const now = new Date();
     const headers = new Headers(notFoundHeaders());
     headers.append("Set-Cookie", issuedCookie);
+    headers.append("Set-Cookie", expireCookie(PASS_COOKIE_NAME));
 
     ctx.waitUntil(storeBans(env, identities, request, country, url.pathname, banTtlSeconds, now));
     console.log(JSON.stringify({
@@ -91,7 +125,12 @@ async function handleRequest(request: Request, env: Env, ctx: ExecutionContext):
     return new Response("", { status: 404, headers });
   }
 
-  return fetch(request);
+  const response = await fetch(request);
+  if (request.headers.get("Upgrade")?.toLowerCase() === "websocket") return response;
+
+  const passValue = await buildPassValue(request, env, passTtlSeconds);
+  const passCookie = await signCookie(PASS_COOKIE_NAME, passValue, env.MESHGUARD_COOKIE_SECRET, passTtlSeconds);
+  return appendSetCookie(response, passCookie);
 }
 
 function isAgentRequest(pathname: string): boolean {
@@ -124,10 +163,10 @@ async function buildCandidateIdentities(request: Request, env: Env, visitorId: s
   return identities;
 }
 
-async function firstExistingBan(env: Env, identities: CandidateIdentity[]): Promise<CandidateIdentity | null> {
+async function firstExistingBan(env: Env, identities: CandidateIdentity[]): Promise<ExistingBan | null> {
   for (const identity of identities) {
     const value = await env.MESHGUARD_BANS.get(identity.key);
-    if (value !== null) return identity;
+    if (value !== null) return { ...identity, record: parseBanRecord(identity.key, value) };
   }
   return null;
 }
@@ -163,20 +202,22 @@ async function storeBans(
   }));
 }
 
-async function touchBan(env: Env, key: string, country: string): Promise<void> {
-  const raw = await env.MESHGUARD_BANS.get(key);
-  if (!raw) return;
+async function touchBan(env: Env, ban: ExistingBan, country: string, minIntervalSeconds: number): Promise<void> {
+  if (!ban.record) return;
 
   try {
-    const record = JSON.parse(raw) as BanRecord;
+    const record = ban.record;
+    const lastSeen = Date.parse(record.lastSeenAt);
+    if (Number.isFinite(lastSeen) && Date.now() - lastSeen < minIntervalSeconds * 1000) return;
+
     record.lastSeenAt = new Date().toISOString();
     record.lastCountry = country;
     const remainingSeconds = Math.max(60, Math.floor((Date.parse(record.expiresAt) - Date.now()) / 1000));
-    await env.MESHGUARD_BANS.put(key, JSON.stringify(record), { expirationTtl: remainingSeconds });
+    await env.MESHGUARD_BANS.put(ban.key, JSON.stringify(record), { expirationTtl: remainingSeconds });
   } catch (error) {
     console.error(JSON.stringify({
       message: "meshguard_touch_ban_failed",
-      key,
+      key: ban.key,
       error: error instanceof Error ? error.message : String(error)
     }));
   }
@@ -212,18 +253,27 @@ async function handleAdmin(request: Request, env: Env, url: URL, adminPath: stri
     const formCsrf = stringFormValue(form.get("csrf"));
     if (!(await safeEqual(formCsrf, csrf))) return notFound();
 
-    const key = stringFormValue(form.get("key"));
-    if (key.startsWith("ban:")) {
-      await env.MESHGUARD_BANS.delete(key);
-      console.log(JSON.stringify({ message: "meshguard_admin_unban", key }));
+    const keys = form.getAll("key")
+      .map(stringFormValue)
+      .filter((key) => key.startsWith("ban:"))
+      .slice(0, MAX_GROUP_DELETE_KEYS);
+    const uniqueKeys = Array.from(new Set(keys));
+
+    await Promise.all(uniqueKeys.map((key) => env.MESHGUARD_BANS.delete(key)));
+    if (uniqueKeys.length > 0) {
+      console.log(JSON.stringify({ message: "meshguard_admin_unban", count: uniqueKeys.length }));
     }
-    return redirect(adminPath);
+
+    const query = stringFormValue(form.get("q"));
+    return redirect(query ? `${adminPath}?q=${encodeURIComponent(query)}` : adminPath);
   }
 
   if (request.method !== "GET" || url.pathname !== adminPath) return notFound();
 
+  const query = (url.searchParams.get("q") || "").trim();
   const bans = await listBanRecords(env);
-  return html(adminPage(adminPath, bans, csrf), 200);
+  const groups = await filterBanGroups(env, groupBanRecords(bans), query);
+  return html(adminPage(adminPath, groups, csrf, query), 200);
 }
 
 async function listBanRecords(env: Env): Promise<BanRecord[]> {
@@ -233,9 +283,10 @@ async function listBanRecords(env: Env): Promise<BanRecord[]> {
   for (const key of listed.keys) {
     const raw = await env.MESHGUARD_BANS.get(key.name);
     if (!raw) continue;
-    try {
-      records.push(JSON.parse(raw) as BanRecord);
-    } catch {
+    const record = parseBanRecord(key.name, raw);
+    if (record) {
+      records.push(record);
+    } else {
       records.push({
         key: key.name,
         type: "visitor",
@@ -253,6 +304,131 @@ async function listBanRecords(env: Env): Promise<BanRecord[]> {
   }
 
   return records.sort((a, b) => b.lastSeenAt.localeCompare(a.lastSeenAt));
+}
+
+function groupBanRecords(records: BanRecord[]): BanGroup[] {
+  const groups = new Map<string, BanGroup>();
+
+  for (const record of records) {
+    const groupKey = `${record.ipPrefixHash}|${record.userAgentHash}|${record.expiresAt}`;
+    const existing = groups.get(groupKey);
+
+    if (!existing) {
+      groups.set(groupKey, {
+        id: `${record.ipPrefixHash.slice(0, 12)}:${record.userAgentHash.slice(0, 12)}:${record.expiresAt}`,
+        keys: [record.key],
+        types: [record.type],
+        firstSeenAt: record.firstSeenAt,
+        lastSeenAt: record.lastSeenAt,
+        firstCountry: record.firstCountry,
+        lastCountry: record.lastCountry,
+        ipPrefixHash: record.ipPrefixHash,
+        userAgentHash: record.userAgentHash,
+        path: record.path,
+        expiresAt: record.expiresAt
+      });
+      continue;
+    }
+
+    existing.keys.push(record.key);
+    if (!existing.types.includes(record.type)) existing.types.push(record.type);
+    if (record.firstSeenAt && (!existing.firstSeenAt || record.firstSeenAt < existing.firstSeenAt)) {
+      existing.firstSeenAt = record.firstSeenAt;
+    }
+    if (record.lastSeenAt > existing.lastSeenAt) {
+      existing.lastSeenAt = record.lastSeenAt;
+      existing.lastCountry = record.lastCountry;
+    }
+    if (!existing.path && record.path) existing.path = record.path;
+  }
+
+  return Array.from(groups.values()).sort((a, b) => b.lastSeenAt.localeCompare(a.lastSeenAt));
+}
+
+async function filterBanGroups(env: Env, groups: BanGroup[], query: string): Promise<BanGroup[]> {
+  const q = query.trim().toLowerCase();
+  if (!q) return groups;
+
+  const ipPrefix = normalizeSearchIpPrefix(q);
+  const searchedIpHash = ipPrefix ? await hashText(env, ipPrefix) : "";
+
+  return groups.filter((group) => {
+    const haystack = [
+      group.id,
+      group.keys.join(" "),
+      group.types.join(" "),
+      group.firstCountry,
+      group.lastCountry,
+      group.path,
+      group.expiresAt,
+      group.ipPrefixHash,
+      group.userAgentHash
+    ].join(" ").toLowerCase();
+
+    return haystack.includes(q) || (searchedIpHash !== "" && group.ipPrefixHash === searchedIpHash);
+  });
+}
+
+function normalizeSearchIpPrefix(query: string): string {
+  const token = query.trim().split(/\s+/)[0].replace(/^\[/, "").replace(/\]$/, "");
+  const ipv4 = token.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})(?:\.\d{1,3})?(?:\/\d{1,2})?$/);
+  if (ipv4) return `${ipv4[1]}.${ipv4[2]}.${ipv4[3]}`;
+
+  if (token.includes(":")) {
+    const hextets = token.split(":").filter(Boolean);
+    if (hextets.length >= 4) return hextets.slice(0, 4).join(":").toLowerCase();
+  }
+
+  return "";
+}
+
+function parseBanRecord(key: string, raw: string): BanRecord | null {
+  try {
+    const record = JSON.parse(raw) as Partial<BanRecord>;
+    if (!record || typeof record !== "object") return null;
+    return {
+      key,
+      type: record.type === "browser" || record.type === "network" ? record.type : "visitor",
+      reason: "non_fr_dashboard_access",
+      firstSeenAt: typeof record.firstSeenAt === "string" ? record.firstSeenAt : "",
+      lastSeenAt: typeof record.lastSeenAt === "string" ? record.lastSeenAt : "",
+      firstCountry: typeof record.firstCountry === "string" ? record.firstCountry : "",
+      lastCountry: typeof record.lastCountry === "string" ? record.lastCountry : "",
+      ipPrefixHash: typeof record.ipPrefixHash === "string" ? record.ipPrefixHash : "",
+      userAgentHash: typeof record.userAgentHash === "string" ? record.userAgentHash : "",
+      path: typeof record.path === "string" ? record.path : "",
+      expiresAt: typeof record.expiresAt === "string" ? record.expiresAt : ""
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function buildPassValue(request: Request, env: Env, ttlSeconds: number): Promise<string> {
+  const expiresAt = Math.floor(Date.now() / 1000) + ttlSeconds;
+  const [ipHash, browserHash] = await Promise.all([
+    hashText(env, getIpPrefix(request)),
+    hashText(env, getBrowserFingerprint(request))
+  ]);
+  return `v1:${expiresAt}:${ipHash}:${browserHash}`;
+}
+
+async function verifyPassCookie(raw: string | undefined, request: Request, env: Env): Promise<boolean> {
+  const value = await verifySignedValue(raw, env.MESHGUARD_COOKIE_SECRET);
+  if (!value) return false;
+
+  const parts = value.split(":");
+  if (parts.length !== 4 || parts[0] !== "v1") return false;
+
+  const expiresAt = Number.parseInt(parts[1], 10);
+  if (!Number.isFinite(expiresAt) || expiresAt <= Math.floor(Date.now() / 1000)) return false;
+
+  const [ipHash, browserHash] = await Promise.all([
+    hashText(env, getIpPrefix(request)),
+    hashText(env, getBrowserFingerprint(request))
+  ]);
+
+  return await safeEqual(ipHash, parts[2]) && await safeEqual(browserHash, parts[3]);
 }
 
 async function banKey(env: Env, type: BanRecord["type"], value: string): Promise<string> {
@@ -284,6 +460,20 @@ function normalizeHeader(value: string | null): string {
 async function signCookie(name: string, value: string, secret: string, maxAgeSeconds: number): Promise<string> {
   const signed = `${value}.${await hmacBase64Url(secret, value)}`;
   return `${name}=${signed}; Max-Age=${maxAgeSeconds}; Path=/; HttpOnly; Secure; SameSite=Strict`;
+}
+
+function expireCookie(name: string): string {
+  return `${name}=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Strict`;
+}
+
+function appendSetCookie(response: Response, cookie: string): Response {
+  const headers = new Headers(response.headers);
+  headers.append("Set-Cookie", cookie);
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers
+  });
 }
 
 async function verifySignedValue(raw: string | undefined, secret: string): Promise<string | null> {
@@ -403,30 +593,43 @@ function loginPage(adminPath: string, failed: boolean): string {
     input,button{height:40px;border-radius:6px;border:1px solid #334155;background:#111827;color:#e5e7eb;padding:0 12px}
     button{background:#2563eb;border-color:#2563eb;font-weight:700;cursor:pointer}
     p{margin:0;color:#fca5a5}
+    .sr-only{position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden}
   </style>
 </head>
 <body>
   <form method="post" action="${escapeHtml(adminPath)}/login">
     ${failed ? "<p>Secret invalide.</p>" : ""}
-    <input type="password" name="secret" autocomplete="current-password" placeholder="Secret admin" autofocus>
+    <input class="sr-only" type="text" name="username" value="meshguard-admin" autocomplete="username" tabindex="-1" aria-hidden="true">
+    <input type="password" name="secret" autocomplete="current-password" placeholder="Secret admin" required autofocus>
     <button type="submit">Connexion</button>
   </form>
 </body>
 </html>`;
 }
 
-function adminPage(adminPath: string, bans: BanRecord[], csrf: string): string {
-  const rows = bans.map((ban) => `<tr>
-    <td><code>${escapeHtml(ban.key)}</code></td>
-    <td>${escapeHtml(ban.type)}</td>
-    <td>${escapeHtml(ban.firstCountry)} -> ${escapeHtml(ban.lastCountry)}</td>
-    <td>${escapeHtml(ban.path)}</td>
-    <td>${escapeHtml(ban.lastSeenAt)}</td>
-    <td>${escapeHtml(ban.expiresAt)}</td>
+function adminPage(adminPath: string, groups: BanGroup[], csrf: string, query: string): string {
+  const rows = groups.map((group) => `<tr>
+    <td>
+      <strong>${escapeHtml(group.types.join(" + "))}</strong>
+      <div class="muted">${group.keys.length} cle${group.keys.length > 1 ? "s" : ""}</div>
+    </td>
+    <td>${escapeHtml(group.firstCountry)} -> ${escapeHtml(group.lastCountry)}</td>
+    <td>${escapeHtml(group.path || "/")}</td>
+    <td>${escapeHtml(group.lastSeenAt)}</td>
+    <td>${escapeHtml(group.expiresAt)}</td>
+    <td>
+      <code>ip:${escapeHtml(group.ipPrefixHash.slice(0, 18))}</code><br>
+      <code>ua:${escapeHtml(group.userAgentHash.slice(0, 18))}</code>
+      <details>
+        <summary>Voir les cles</summary>
+        ${group.keys.map((key) => `<code>${escapeHtml(key)}</code>`).join("<br>")}
+      </details>
+    </td>
     <td>
       <form method="post" action="${escapeHtml(adminPath)}/unban">
         <input type="hidden" name="csrf" value="${escapeHtml(csrf)}">
-        <input type="hidden" name="key" value="${escapeHtml(ban.key)}">
+        <input type="hidden" name="q" value="${escapeHtml(query)}">
+        ${group.keys.map((key) => `<input type="hidden" name="key" value="${escapeHtml(key)}">`).join("")}
         <button type="submit">Debannir</button>
       </form>
     </td>
@@ -441,20 +644,35 @@ function adminPage(adminPath: string, bans: BanRecord[], csrf: string): string {
   <style>
     body{margin:0;background:#f8fafc;color:#111827;font:13px system-ui,sans-serif}
     main{padding:24px;max-width:1280px;margin:0 auto}
-    h1{font-size:20px;margin:0 0 16px}
+    header{display:flex;gap:16px;align-items:flex-end;justify-content:space-between;margin:0 0 16px}
+    h1{font-size:20px;margin:0}
+    .search{display:flex;gap:8px;align-items:center}
+    .search input{height:34px;width:min(360px,52vw);border-radius:6px;border:1px solid #cbd5e1;background:white;color:#111827;padding:0 10px}
     table{width:100%;border-collapse:collapse;background:white;border:1px solid #e5e7eb}
     th,td{padding:9px 10px;border-bottom:1px solid #e5e7eb;text-align:left;vertical-align:top}
     th{background:#f1f5f9;font-size:12px;text-transform:uppercase;color:#475569}
     code{font-size:11px;word-break:break-all}
-    button{height:30px;border-radius:6px;border:1px solid #dc2626;background:#dc2626;color:white;font-weight:700;cursor:pointer}
+    button,.linkbutton{height:30px;border-radius:6px;border:1px solid #dc2626;background:#dc2626;color:white;font-weight:700;cursor:pointer;padding:0 10px}
+    .search button,.linkbutton{border-color:#334155;background:#334155;text-decoration:none;display:inline-grid;place-items:center}
     .empty{padding:18px;background:white;border:1px solid #e5e7eb}
+    .muted{color:#64748b;font-size:12px;margin-top:3px}
+    details{margin-top:6px}
+    summary{cursor:pointer;color:#334155}
+    @media(max-width:720px){main{padding:14px}header{display:grid}.search{display:grid;grid-template-columns:1fr auto}.search input{width:auto}table{font-size:12px}}
   </style>
 </head>
 <body>
   <main>
-    <h1>MeshGuard Bans</h1>
-    ${bans.length === 0 ? '<div class="empty">Aucun ban actif.</div>' : `<table>
-      <thead><tr><th>Key</th><th>Type</th><th>Pays</th><th>Chemin</th><th>Dernier accès</th><th>Expire</th><th></th></tr></thead>
+    <header>
+      <h1>MeshGuard Bans</h1>
+      <form class="search" method="get" action="${escapeHtml(adminPath)}">
+        <input type="search" name="q" value="${escapeHtml(query)}" autocomplete="off" placeholder="IP, pays, hash ou chemin">
+        <button type="submit">Rechercher</button>
+        ${query ? `<a class="linkbutton" href="${escapeHtml(adminPath)}">Reset</a>` : ""}
+      </form>
+    </header>
+    ${groups.length === 0 ? '<div class="empty">Aucun ban actif ou aucun resultat.</div>' : `<table>
+      <thead><tr><th>Identite</th><th>Pays</th><th>Chemin</th><th>Dernier acces</th><th>Expire</th><th>Hashes</th><th></th></tr></thead>
       <tbody>${rows}</tbody>
     </table>`}
   </main>

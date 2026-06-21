@@ -19,6 +19,8 @@
   "vars": {
     "ALLOWED_COUNTRY": "FR",
     "BAN_TTL_SECONDS": "7776000",
+    "PASS_TTL_SECONDS": "7200",
+    "BAN_TOUCH_INTERVAL_SECONDS": "900",
     "ADMIN_PATH": "/__meshguard/admin"
   },
   "secrets": {
