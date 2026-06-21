@@ -630,6 +630,113 @@
 })();
 
 
+// Desktop first-frame loading overlay
+(() => {
+    const OVERLAY_ID = 'mc-desktop-loading-overlay';
+    const DESKTOP_STATUS_ID = 'deskstatus';
+    const FALLBACK_STATUS_ID = 'p13bottomstatus';
+    const WAITING_TEXT = 'Connexion au bureau distant...';
+    const SLOW_TEXT = 'Toujours en attente du premier flux...';
+    const PROCESSING_RE = /(processing|traitement|connecting|connexion|initiali[sz]ing|starting|waiting|attente|handshake)/i;
+    const DISCONNECTED_RE = /(disconnected|deconnecte|déconnecté|not connected|ferme|fermé)/i;
+    let observer = null;
+    let waitingSince = 0;
+
+    const getStatusNode = () => document.getElementById(DESKTOP_STATUS_ID) || document.getElementById(FALLBACK_STATUS_ID);
+    const getStatusText = () => {
+        const node = getStatusNode();
+        return node ? node.textContent.replace(/\s+/g, ' ').trim() : '';
+    };
+
+    const getDesktopHost = () => {
+        return document.getElementById('DeskParent')
+            || document.getElementById('deskarea0')
+            || document.getElementById('p11')
+            || document.body;
+    };
+
+    const ensureOverlay = () => {
+        const host = getDesktopHost();
+        if (!host) return null;
+
+        let overlay = document.getElementById(OVERLAY_ID);
+        if (!overlay) {
+            overlay = document.createElement('div');
+            overlay.id = OVERLAY_ID;
+            overlay.setAttribute('aria-live', 'polite');
+            overlay.innerHTML = '<div class="mc-desktop-loading-card"><span class="mc-desktop-loading-spinner" aria-hidden="true"></span><span class="mc-desktop-loading-text"></span></div>';
+        }
+
+        if (overlay.parentElement !== host) {
+            host.appendChild(overlay);
+            if (host !== document.body && window.getComputedStyle(host).position === 'static') {
+                host.style.position = 'relative';
+            }
+        }
+
+        return overlay;
+    };
+
+    const hasVisibleDesktopSurface = () => {
+        const surface = document.querySelector('#DeskParent canvas, #DeskParent img, #deskarea0 canvas, #deskarea0 img, canvas#Desk, img#Desk');
+        if (!surface) return false;
+
+        const width = surface.videoWidth || surface.naturalWidth || surface.width || surface.clientWidth;
+        const height = surface.videoHeight || surface.naturalHeight || surface.height || surface.clientHeight;
+        if (width < 8 || height < 8) return false;
+
+        const rect = surface.getBoundingClientRect();
+        return rect.width > 8 && rect.height > 8;
+    };
+
+    const shouldShowOverlay = () => {
+        const text = getStatusText();
+        const state = window.desktop && typeof window.desktop.State === 'number' ? window.desktop.State : null;
+
+        if (DISCONNECTED_RE.test(text) || state === 0) return false;
+        if (PROCESSING_RE.test(text)) return true;
+        if ((state === 1 || state === 2) && !hasVisibleDesktopSurface()) return true;
+
+        return false;
+    };
+
+    const syncOverlay = () => {
+        const overlay = ensureOverlay();
+        if (!overlay) return;
+
+        const show = shouldShowOverlay();
+        if (show && waitingSince === 0) waitingSince = Date.now();
+        if (!show) waitingSince = 0;
+
+        const text = overlay.querySelector('.mc-desktop-loading-text');
+        if (text) {
+            text.textContent = waitingSince && (Date.now() - waitingSince > 15000) ? SLOW_TEXT : WAITING_TEXT;
+        }
+
+        overlay.classList.toggle('is-visible', show);
+    };
+
+    const queueSync = () => window.requestAnimationFrame(syncOverlay);
+
+    const startObserver = () => {
+        const root = document.body || document.documentElement;
+        if (!root) return;
+
+        if (observer) observer.disconnect();
+        observer = new MutationObserver(queueSync);
+        observer.observe(root, { childList: true, subtree: true, characterData: true, attributes: true });
+        window.setInterval(syncOverlay, 500);
+        syncOverlay();
+    };
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', startObserver, { once: true });
+    } else {
+        startObserver();
+    }
+})();
+
+
 // Desktop privacy freeze badge driven by the enhanced MNG_KVM_INPUT_LOCK status byte.
 (() => {
     const BADGE_ID = 'mc-privacy-freeze-badge';
@@ -2183,6 +2290,204 @@ document.addEventListener('DOMContentLoaded', () => {
         return true;
     }
 
+    // --- 6) Hard confirmation before deleting a single device ---
+    let armedDeleteNodeId = null;
+    function getNodeLabel(nodeid) {
+        try {
+            const node = (typeof window.getNodeFromId === 'function') ? window.getNodeFromId(nodeid) : null;
+            if (node && node.name) return node.name;
+        } catch (_) {}
+        if (window.currentNode && window.currentNode._id === nodeid && window.currentNode.name) return window.currentNode.name;
+        return nodeid || 'cet appareil';
+    }
+
+    function setDeleteOkEnabled(ready) {
+        if (typeof window.QE === 'function') {
+            window.QE('idx_dlgOkButton', ready);
+            return;
+        }
+        const ok = document.getElementById('idx_dlgOkButton');
+        if (ok) ok.disabled = !ready;
+    }
+
+    function showDeleteNodeConfirmation(nodeid, executeDelete) {
+        if (!nodeid) return false;
+        if (window.xxdialogMode) return false;
+
+        const name = getNodeLabel(nodeid);
+        const html =
+            'Supprimer définitivement <b>' + escHtml(name) + '</b> ?<br><br>' +
+            'Cette action retire l’appareil de MeshCentral et ne doit pas partir sur un simple clic.<br><br>' +
+            '<label><input id="mcDeleteNodeConfirm" type="checkbox" class="form-check-input me-2">Confirmer la suppression</label>';
+
+        const run = function () {
+            armedDeleteNodeId = nodeid;
+            try { executeDelete(); }
+            finally { armedDeleteNodeId = null; }
+        };
+
+        if (typeof window.setModalContent === 'function' && typeof window.showModal === 'function') {
+            try {
+                window.xxdialogButtons = 3;
+                window.xxdialogTag = nodeid;
+                window.setModalContent('xxAddAgent', 'Supprimer l’appareil', html);
+                window.showModal('xxAddAgentModal', 'idx_dlgOkButton', run);
+                const sync = function () {
+                    const check = document.getElementById('mcDeleteNodeConfirm');
+                    setDeleteOkEnabled(!!(check && check.checked));
+                };
+                window.setTimeout(function () {
+                    const check = document.getElementById('mcDeleteNodeConfirm');
+                    if (check) check.addEventListener('change', sync);
+                    sync();
+                }, 0);
+                return false;
+            } catch (_) {}
+        }
+
+        if (window.confirm('Supprimer définitivement "' + name + '" ?')) run();
+        return false;
+    }
+
+    function patchDeviceDeleteConfirmation() {
+        if (typeof window.p10showDeleteNodeDialog === 'function' && !window.p10showDeleteNodeDialog.__mcWrapped) {
+            const wrappedDialog = function (nodeid) {
+                const id = nodeid || (window.currentNode && window.currentNode._id);
+                return showDeleteNodeConfirmation(id, function () {
+                    if (window.meshserver) window.meshserver.send({ action: 'removedevices', nodeids: [id] });
+                });
+            };
+            wrappedDialog.__mcWrapped = true;
+            window.p10showDeleteNodeDialog = wrappedDialog;
+        }
+
+        if (typeof window.p10showDeleteNodeDialogEx === 'function' && !window.p10showDeleteNodeDialogEx.__mcWrapped) {
+            const origExec = window.p10showDeleteNodeDialogEx;
+            const wrappedExec = function (buttons, nodeid) {
+                const id = nodeid || window.xxdialogTag || (window.currentNode && window.currentNode._id);
+                if (!id) return false;
+                if (armedDeleteNodeId === id) return origExec.apply(this, arguments);
+                return showDeleteNodeConfirmation(id, function () {
+                    armedDeleteNodeId = id;
+                    try { origExec.call(window, buttons, id); }
+                    finally { armedDeleteNodeId = null; }
+                });
+            };
+            wrappedExec.__mcWrapped = true;
+            window.p10showDeleteNodeDialogEx = wrappedExec;
+        }
+    }
+
+    // --- 7) Fast connected-devices filter on the device page ---
+    const CONNECTED_FILTER_ID = 'mc-connected-only-filter';
+    const CONNECTED_FILTER_ACTIVE_KEY = 'mcConnectedOnlyFilterActive';
+    const CONNECTED_FILTER_PREVIOUS_KEY = 'mcConnectedOnlyFilterPrevious';
+
+    function readUiStore(key, fallback) {
+        try {
+            if (typeof window.getstore === 'function') {
+                const value = window.getstore(key, fallback);
+                return value == null ? fallback : value;
+            }
+            const value = window.localStorage.getItem(key);
+            return value == null ? fallback : value;
+        } catch (_) {
+            return fallback;
+        }
+    }
+
+    function writeUiStore(key, value) {
+        try {
+            if (typeof window.putstore === 'function') window.putstore(key, value);
+            else window.localStorage.setItem(key, value);
+        } catch (_) {}
+    }
+
+    function applyDeviceFilterValue(value) {
+        const select = document.getElementById('DevFilterSelect');
+        if (!select || select.value === String(value) && value !== '1') return;
+        select.value = String(value);
+        if (typeof window.onOnlineCheckBox === 'function') {
+            window.onOnlineCheckBox({ target: select });
+        } else if (typeof window.onDeviceSearchChanged === 'function') {
+            window.onDeviceSearchChanged({ target: select });
+        } else if (typeof window.mainUpdate === 'function') {
+            window.mainUpdate(1);
+        }
+    }
+
+    function ensureConnectedDevicesFilter() {
+        const select = document.getElementById('DevFilterSelect');
+        const bar = document.getElementById('devsCustomUIBar') || (select && select.parentElement);
+        if (!select || !bar) return;
+
+        if (!select.__mcConnectedFilterHook) {
+            select.__mcConnectedFilterHook = true;
+            select.addEventListener('change', function () {
+                if (select.value !== '1') writeUiStore(CONNECTED_FILTER_ACTIVE_KEY, '0');
+                syncConnectedButton();
+            });
+        }
+
+        let button = document.getElementById(CONNECTED_FILTER_ID);
+        if (!button) {
+            button = document.createElement('button');
+            button.id = CONNECTED_FILTER_ID;
+            button.type = 'button';
+            button.className = 'btn btn-sm mc-connected-only-filter';
+            button.title = 'Afficher uniquement les appareils avec agent connecte';
+            button.innerHTML = '<i class="fa-solid fa-signal" aria-hidden="true"></i><span>Connectés</span>';
+            button.addEventListener('click', function () {
+                const active = select.value === '1';
+                if (active) {
+                    writeUiStore(CONNECTED_FILTER_ACTIVE_KEY, '0');
+                    applyDeviceFilterValue(readUiStore(CONNECTED_FILTER_PREVIOUS_KEY, '0') || '0');
+                } else {
+                    if (select.value !== '1') writeUiStore(CONNECTED_FILTER_PREVIOUS_KEY, select.value || '0');
+                    writeUiStore(CONNECTED_FILTER_ACTIVE_KEY, '1');
+                    applyDeviceFilterValue('1');
+                }
+                syncConnectedButton();
+            });
+            bar.prepend(button);
+        }
+
+        if (readUiStore(CONNECTED_FILTER_ACTIVE_KEY, '0') === '1' && select.value !== '1') {
+            applyDeviceFilterValue('1');
+        }
+        syncConnectedButton();
+    }
+
+    function syncConnectedButton() {
+        const select = document.getElementById('DevFilterSelect');
+        const button = document.getElementById(CONNECTED_FILTER_ID);
+        if (!select || !button) return;
+        const active = select.value === '1';
+        button.classList.toggle('is-active', active);
+        button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    }
+
+    // --- 8) MeshGuard admin shortcut on the user-management page ---
+    function ensureMeshGuardAdminLink() {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get('viewmode') !== '4') return;
+        } catch (_) {
+            return;
+        }
+
+        if (document.getElementById('mc-meshguard-admin-link')) return;
+
+        const link = document.createElement('a');
+        link.id = 'mc-meshguard-admin-link';
+        link.href = '/__meshguard/admin';
+        link.target = '_blank';
+        link.rel = 'noopener noreferrer';
+        link.title = 'Gérer les bannissements MeshGuard';
+        link.innerHTML = '<i class="fa-solid fa-shield-halved" aria-hidden="true"></i><span>MeshGuard</span>';
+        document.body.appendChild(link);
+    }
+
     // --- 3) Default the Windows terminal to PowerShell instead of cmd ---
     // Core defaults to protocol 1 (Admin Shell = cmd on Windows). For Windows
     // agents (agent.id 1-4, same test the core uses for its Shift->PowerShell
@@ -2215,6 +2520,9 @@ document.addEventListener('DOMContentLoaded', () => {
         patchDeviceChat();
         patchConnectTerminal();
         patchDeviceToastEx();
+        patchDeviceDeleteConfirmation();
+        ensureConnectedDevicesFilter();
+        ensureMeshGuardAdminLink();
         relabelResetOption();
         enhanceNotificationDialog();
     }

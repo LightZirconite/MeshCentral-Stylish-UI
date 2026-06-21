@@ -1,0 +1,7 @@
+{
+  "domains": {
+    "": {
+      "autoremoveinactivedevices": 90
+    }
+  }
+}

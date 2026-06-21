@@ -164,6 +164,10 @@ meshcentral-web/
 > PS: You can also make Modern UI the default for all users by editing the meshcentral-data/config.json file and adding the following line under the default domain at "domains" section: `"siteStyle": 3,`
 > <img width="60%" alt="image" src="https://raw.githubusercontent.com/Melo-Professional/MeshCentral-Stylish-UI/refs/heads/readme-assets/readme-assets/syteStyle3.png" />
 
+> To automatically delete devices that have been inactive for 90 days, add `"autoremoveinactivedevices": 90` under the target domain in `meshcentral-data/config.json`. A ready-to-copy example is available at `metadata/autoremove-inactive-devices-90days.example.json`.
+
+> Optional dashboard geofence: `cloudflare/mesh-dashboard-guard/` contains a Cloudflare Worker for `mesh.lgtw.tf/*`. It returns a blank `404` for browser dashboard traffic outside France, keeps Mesh agent endpoints reachable worldwide, and exposes `/__meshguard/admin` for authenticated unban actions.
+
 
 7. Refresh your browser (CTRL + SHIFT + R)
 

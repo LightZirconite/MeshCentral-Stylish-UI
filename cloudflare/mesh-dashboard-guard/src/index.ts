@@ -1,0 +1,476 @@
+type BanRecord = {
+  key: string;
+  type: "visitor" | "browser" | "network";
+  reason: "non_fr_dashboard_access";
+  firstSeenAt: string;
+  lastSeenAt: string;
+  firstCountry: string;
+  lastCountry: string;
+  ipPrefixHash: string;
+  userAgentHash: string;
+  path: string;
+  expiresAt: string;
+};
+
+type CandidateIdentity = {
+  key: string;
+  type: BanRecord["type"];
+};
+
+const COOKIE_NAME = "meshguard_id";
+const ADMIN_COOKIE_NAME = "meshguard_admin";
+const ADMIN_SESSION_SECONDS = 3600;
+const DEFAULT_ALLOWED_COUNTRY = "FR";
+const DEFAULT_BAN_TTL_SECONDS = 90 * 24 * 60 * 60;
+const MAX_ADMIN_LIST = 500;
+
+const AGENT_PATHS = new Set([
+  "/agent.ashx",
+  "/meshrelay.ashx",
+  "/meshagents",
+  "/meshsettings",
+  "/control.ashx",
+  "/amtevents.ashx"
+]);
+
+export default {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    try {
+      return await handleRequest(request, env, ctx);
+    } catch (error) {
+      console.error(JSON.stringify({
+        message: "meshguard_unhandled_error",
+        error: error instanceof Error ? error.message : String(error),
+        path: new URL(request.url).pathname
+      }));
+      return notFound();
+    }
+  }
+} satisfies ExportedHandler<Env>;
+
+async function handleRequest(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  const url = new URL(request.url);
+  const adminPath = env.ADMIN_PATH || "/__meshguard/admin";
+
+  if (isAdminPath(url.pathname, adminPath)) {
+    return handleAdmin(request, env, url, adminPath);
+  }
+
+  if (isAgentRequest(url.pathname)) {
+    return fetch(request);
+  }
+
+  const country = getCountry(request);
+  const allowedCountry = (env.ALLOWED_COUNTRY || DEFAULT_ALLOWED_COUNTRY).toUpperCase();
+  const banTtlSeconds = parsePositiveInt(env.BAN_TTL_SECONDS, DEFAULT_BAN_TTL_SECONDS);
+  const cookies = parseCookies(request.headers.get("Cookie"));
+  const validCookieId = await verifySignedValue(cookies.get(COOKIE_NAME), env.MESHGUARD_COOKIE_SECRET);
+  const candidateKeys = await buildCandidateIdentities(request, env, validCookieId);
+  const existingBan = await firstExistingBan(env, candidateKeys);
+
+  if (existingBan) {
+    ctx.waitUntil(touchBan(env, existingBan.key, country));
+    return notFound();
+  }
+
+  if (country !== allowedCountry) {
+    const issuedCookieId = validCookieId || crypto.randomUUID();
+    const issuedCookie = await signCookie(COOKIE_NAME, issuedCookieId, env.MESHGUARD_COOKIE_SECRET, banTtlSeconds);
+    const identities = await buildCandidateIdentities(request, env, issuedCookieId);
+    const now = new Date();
+    const headers = new Headers(notFoundHeaders());
+    headers.append("Set-Cookie", issuedCookie);
+
+    ctx.waitUntil(storeBans(env, identities, request, country, url.pathname, banTtlSeconds, now));
+    console.log(JSON.stringify({
+      message: "meshguard_blocked_country",
+      country,
+      path: url.pathname,
+      identityCount: identities.length
+    }));
+    return new Response("", { status: 404, headers });
+  }
+
+  return fetch(request);
+}
+
+function isAgentRequest(pathname: string): boolean {
+  const path = pathname.toLowerCase();
+  return AGENT_PATHS.has(path);
+}
+
+function isAdminPath(pathname: string, adminPath: string): boolean {
+  return pathname === adminPath || pathname.startsWith(`${adminPath}/`);
+}
+
+function getCountry(request: Request): string {
+  const cf = request.cf as IncomingRequestCfProperties | undefined;
+  const country = typeof cf?.country === "string" ? cf.country : "";
+  return country.toUpperCase() || "XX";
+}
+
+async function buildCandidateIdentities(request: Request, env: Env, visitorId: string | null): Promise<CandidateIdentity[]> {
+  const identities: CandidateIdentity[] = [];
+  const fingerprint = getBrowserFingerprint(request);
+  const networkFingerprint = `${getIpPrefix(request)}|${fingerprint}`;
+
+  if (visitorId) {
+    identities.push({ type: "visitor", key: await banKey(env, "visitor", visitorId) });
+  }
+
+  identities.push({ type: "browser", key: await banKey(env, "browser", fingerprint) });
+  identities.push({ type: "network", key: await banKey(env, "network", networkFingerprint) });
+
+  return identities;
+}
+
+async function firstExistingBan(env: Env, identities: CandidateIdentity[]): Promise<CandidateIdentity | null> {
+  for (const identity of identities) {
+    const value = await env.MESHGUARD_BANS.get(identity.key);
+    if (value !== null) return identity;
+  }
+  return null;
+}
+
+async function storeBans(
+  env: Env,
+  identities: CandidateIdentity[],
+  request: Request,
+  country: string,
+  path: string,
+  ttlSeconds: number,
+  now: Date
+): Promise<void> {
+  const expiresAt = new Date(now.getTime() + ttlSeconds * 1000).toISOString();
+  const ipPrefixHash = await hashText(env, getIpPrefix(request));
+  const userAgentHash = await hashText(env, request.headers.get("User-Agent") || "");
+
+  await Promise.all(identities.map((identity) => {
+    const record: BanRecord = {
+      key: identity.key,
+      type: identity.type,
+      reason: "non_fr_dashboard_access",
+      firstSeenAt: now.toISOString(),
+      lastSeenAt: now.toISOString(),
+      firstCountry: country,
+      lastCountry: country,
+      ipPrefixHash,
+      userAgentHash,
+      path,
+      expiresAt
+    };
+    return env.MESHGUARD_BANS.put(identity.key, JSON.stringify(record), { expirationTtl: ttlSeconds });
+  }));
+}
+
+async function touchBan(env: Env, key: string, country: string): Promise<void> {
+  const raw = await env.MESHGUARD_BANS.get(key);
+  if (!raw) return;
+
+  try {
+    const record = JSON.parse(raw) as BanRecord;
+    record.lastSeenAt = new Date().toISOString();
+    record.lastCountry = country;
+    const remainingSeconds = Math.max(60, Math.floor((Date.parse(record.expiresAt) - Date.now()) / 1000));
+    await env.MESHGUARD_BANS.put(key, JSON.stringify(record), { expirationTtl: remainingSeconds });
+  } catch (error) {
+    console.error(JSON.stringify({
+      message: "meshguard_touch_ban_failed",
+      key,
+      error: error instanceof Error ? error.message : String(error)
+    }));
+  }
+}
+
+async function handleAdmin(request: Request, env: Env, url: URL, adminPath: string): Promise<Response> {
+  const country = getCountry(request);
+  const allowedCountry = (env.ALLOWED_COUNTRY || DEFAULT_ALLOWED_COUNTRY).toUpperCase();
+  if (country !== allowedCountry) return notFound();
+
+  const cookies = parseCookies(request.headers.get("Cookie"));
+  const adminSession = await verifySignedValue(cookies.get(ADMIN_COOKIE_NAME), env.MESHGUARD_ADMIN_SECRET);
+  const csrf = adminSession ? await hmacHex(env.MESHGUARD_ADMIN_SECRET, `csrf:${adminSession}`) : "";
+
+  if (url.pathname === `${adminPath}/login` && request.method === "POST") {
+    const form = await request.formData();
+    const suppliedSecret = stringFormValue(form.get("secret"));
+    if (!(await safeEqual(suppliedSecret, env.MESHGUARD_ADMIN_SECRET))) {
+      return html(loginPage(adminPath, true), 403);
+    }
+
+    const sessionId = crypto.randomUUID();
+    const sessionCookie = await signCookie(ADMIN_COOKIE_NAME, sessionId, env.MESHGUARD_ADMIN_SECRET, ADMIN_SESSION_SECONDS);
+    return redirect(adminPath, sessionCookie);
+  }
+
+  if (!adminSession) {
+    return html(loginPage(adminPath, false), 200);
+  }
+
+  if (request.method === "POST" && url.pathname === `${adminPath}/unban`) {
+    const form = await request.formData();
+    const formCsrf = stringFormValue(form.get("csrf"));
+    if (!(await safeEqual(formCsrf, csrf))) return notFound();
+
+    const key = stringFormValue(form.get("key"));
+    if (key.startsWith("ban:")) {
+      await env.MESHGUARD_BANS.delete(key);
+      console.log(JSON.stringify({ message: "meshguard_admin_unban", key }));
+    }
+    return redirect(adminPath);
+  }
+
+  if (request.method !== "GET" || url.pathname !== adminPath) return notFound();
+
+  const bans = await listBanRecords(env);
+  return html(adminPage(adminPath, bans, csrf), 200);
+}
+
+async function listBanRecords(env: Env): Promise<BanRecord[]> {
+  const listed = await env.MESHGUARD_BANS.list({ prefix: "ban:", limit: MAX_ADMIN_LIST });
+  const records: BanRecord[] = [];
+
+  for (const key of listed.keys) {
+    const raw = await env.MESHGUARD_BANS.get(key.name);
+    if (!raw) continue;
+    try {
+      records.push(JSON.parse(raw) as BanRecord);
+    } catch {
+      records.push({
+        key: key.name,
+        type: "visitor",
+        reason: "non_fr_dashboard_access",
+        firstSeenAt: "",
+        lastSeenAt: "",
+        firstCountry: "",
+        lastCountry: "",
+        ipPrefixHash: "",
+        userAgentHash: "",
+        path: "",
+        expiresAt: ""
+      });
+    }
+  }
+
+  return records.sort((a, b) => b.lastSeenAt.localeCompare(a.lastSeenAt));
+}
+
+async function banKey(env: Env, type: BanRecord["type"], value: string): Promise<string> {
+  return `ban:${type}:${await hmacHex(env.MESHGUARD_COOKIE_SECRET, `${type}:${value}`)}`;
+}
+
+function getBrowserFingerprint(request: Request): string {
+  const headers = request.headers;
+  return [
+    normalizeHeader(headers.get("User-Agent")),
+    normalizeHeader(headers.get("Accept-Language")),
+    normalizeHeader(headers.get("Sec-CH-UA")),
+    normalizeHeader(headers.get("Sec-CH-UA-Platform")),
+    normalizeHeader(headers.get("Sec-CH-UA-Mobile"))
+  ].join("|");
+}
+
+function getIpPrefix(request: Request): string {
+  const ip = request.headers.get("CF-Connecting-IP") || "";
+  if (ip.includes(".")) return ip.split(".").slice(0, 3).join(".");
+  if (ip.includes(":")) return ip.split(":").slice(0, 4).join(":").toLowerCase();
+  return ip;
+}
+
+function normalizeHeader(value: string | null): string {
+  return (value || "").replace(/\s+/g, " ").trim().toLowerCase().slice(0, 512);
+}
+
+async function signCookie(name: string, value: string, secret: string, maxAgeSeconds: number): Promise<string> {
+  const signed = `${value}.${await hmacBase64Url(secret, value)}`;
+  return `${name}=${signed}; Max-Age=${maxAgeSeconds}; Path=/; HttpOnly; Secure; SameSite=Strict`;
+}
+
+async function verifySignedValue(raw: string | undefined, secret: string): Promise<string | null> {
+  if (!raw) return null;
+
+  const separator = raw.lastIndexOf(".");
+  if (separator <= 0) return null;
+
+  const value = raw.slice(0, separator);
+  const signature = raw.slice(separator + 1);
+  const expected = await hmacBase64Url(secret, value);
+  return await safeEqual(signature, expected) ? value : null;
+}
+
+async function hmacBase64Url(secret: string, value: string): Promise<string> {
+  const bytes = new Uint8Array(await hmac(secret, value));
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+async function hmacHex(secret: string, value: string): Promise<string> {
+  const bytes = new Uint8Array(await hmac(secret, value));
+  return Array.from(bytes).map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+async function hmac(secret: string, value: string): Promise<ArrayBuffer> {
+  const encoder = new TextEncoder();
+  const key = await crypto.subtle.importKey("raw", encoder.encode(secret), { name: "HMAC", hash: "SHA-256" }, false, ["sign"]);
+  return crypto.subtle.sign("HMAC", key, encoder.encode(value));
+}
+
+async function hashText(env: Env, value: string): Promise<string> {
+  return hmacHex(env.MESHGUARD_COOKIE_SECRET, `hash:${value}`);
+}
+
+async function safeEqual(left: string, right: string): Promise<boolean> {
+  const encoder = new TextEncoder();
+  const [leftHash, rightHash] = await Promise.all([
+    crypto.subtle.digest("SHA-256", encoder.encode(left)),
+    crypto.subtle.digest("SHA-256", encoder.encode(right))
+  ]);
+  const a = new Uint8Array(leftHash);
+  const b = new Uint8Array(rightHash);
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < Math.max(a.length, b.length); i++) {
+    diff |= (a[i] || 0) ^ (b[i] || 0);
+  }
+  return diff === 0;
+}
+
+function parseCookies(header: string | null): Map<string, string> {
+  const cookies = new Map<string, string>();
+  if (!header) return cookies;
+
+  for (const part of header.split(";")) {
+    const separator = part.indexOf("=");
+    if (separator <= 0) continue;
+    const name = part.slice(0, separator).trim();
+    const value = part.slice(separator + 1).trim();
+    cookies.set(name, value);
+  }
+
+  return cookies;
+}
+
+function parsePositiveInt(value: string | undefined, fallback: number): number {
+  if (!value) return fallback;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+function notFound(): Response {
+  return new Response("", { status: 404, headers: notFoundHeaders() });
+}
+
+function notFoundHeaders(): HeadersInit {
+  return {
+    "Cache-Control": "no-store",
+    "Content-Type": "text/plain; charset=utf-8",
+    "X-Robots-Tag": "noindex, nofollow"
+  };
+}
+
+function html(body: string, status: number): Response {
+  return new Response(body, {
+    status,
+    headers: {
+      "Cache-Control": "no-store",
+      "Content-Type": "text/html; charset=utf-8",
+      "X-Frame-Options": "DENY",
+      "X-Content-Type-Options": "nosniff",
+      "Referrer-Policy": "no-referrer"
+    }
+  });
+}
+
+function redirect(location: string, cookie?: string): Response {
+  const headers = new Headers({
+    "Cache-Control": "no-store",
+    "Location": location
+  });
+  if (cookie) headers.append("Set-Cookie", cookie);
+  return new Response("", { status: 303, headers });
+}
+
+function loginPage(adminPath: string, failed: boolean): string {
+  return `<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MeshGuard Admin</title>
+  <style>
+    body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0f172a;color:#e5e7eb;font:14px system-ui,sans-serif}
+    form{width:min(360px,calc(100vw - 32px));display:grid;gap:12px}
+    input,button{height:40px;border-radius:6px;border:1px solid #334155;background:#111827;color:#e5e7eb;padding:0 12px}
+    button{background:#2563eb;border-color:#2563eb;font-weight:700;cursor:pointer}
+    p{margin:0;color:#fca5a5}
+  </style>
+</head>
+<body>
+  <form method="post" action="${escapeHtml(adminPath)}/login">
+    ${failed ? "<p>Secret invalide.</p>" : ""}
+    <input type="password" name="secret" autocomplete="current-password" placeholder="Secret admin" autofocus>
+    <button type="submit">Connexion</button>
+  </form>
+</body>
+</html>`;
+}
+
+function adminPage(adminPath: string, bans: BanRecord[], csrf: string): string {
+  const rows = bans.map((ban) => `<tr>
+    <td><code>${escapeHtml(ban.key)}</code></td>
+    <td>${escapeHtml(ban.type)}</td>
+    <td>${escapeHtml(ban.firstCountry)} -> ${escapeHtml(ban.lastCountry)}</td>
+    <td>${escapeHtml(ban.path)}</td>
+    <td>${escapeHtml(ban.lastSeenAt)}</td>
+    <td>${escapeHtml(ban.expiresAt)}</td>
+    <td>
+      <form method="post" action="${escapeHtml(adminPath)}/unban">
+        <input type="hidden" name="csrf" value="${escapeHtml(csrf)}">
+        <input type="hidden" name="key" value="${escapeHtml(ban.key)}">
+        <button type="submit">Debannir</button>
+      </form>
+    </td>
+  </tr>`).join("");
+
+  return `<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>MeshGuard Bans</title>
+  <style>
+    body{margin:0;background:#f8fafc;color:#111827;font:13px system-ui,sans-serif}
+    main{padding:24px;max-width:1280px;margin:0 auto}
+    h1{font-size:20px;margin:0 0 16px}
+    table{width:100%;border-collapse:collapse;background:white;border:1px solid #e5e7eb}
+    th,td{padding:9px 10px;border-bottom:1px solid #e5e7eb;text-align:left;vertical-align:top}
+    th{background:#f1f5f9;font-size:12px;text-transform:uppercase;color:#475569}
+    code{font-size:11px;word-break:break-all}
+    button{height:30px;border-radius:6px;border:1px solid #dc2626;background:#dc2626;color:white;font-weight:700;cursor:pointer}
+    .empty{padding:18px;background:white;border:1px solid #e5e7eb}
+  </style>
+</head>
+<body>
+  <main>
+    <h1>MeshGuard Bans</h1>
+    ${bans.length === 0 ? '<div class="empty">Aucun ban actif.</div>' : `<table>
+      <thead><tr><th>Key</th><th>Type</th><th>Pays</th><th>Chemin</th><th>Dernier accès</th><th>Expire</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`}
+  </main>
+</body>
+</html>`;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function stringFormValue(value: FormDataEntryValue | null): string {
+  return typeof value === "string" ? value : "";
+}

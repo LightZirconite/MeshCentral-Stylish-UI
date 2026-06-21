@@ -1,0 +1,13 @@
+{
+  "name": "mesh-dashboard-guard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "check": "wrangler deploy --dry-run --outdir ../../.wrangler/mesh-dashboard-guard"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260621.1",
+    "wrangler": "^4.103.0"
+  }
+}

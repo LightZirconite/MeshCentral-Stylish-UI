@@ -1,0 +1,37 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "mesh-dashboard-guard",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-06-21",
+  "routes": [
+    {
+      "pattern": "mesh.lgtw.tf/*",
+      "zone_name": "lgtw.tf"
+    }
+  ],
+  "kv_namespaces": [
+    {
+      "binding": "MESHGUARD_BANS",
+      "id": "REPLACE_WITH_PRODUCTION_KV_NAMESPACE_ID",
+      "preview_id": "REPLACE_WITH_PREVIEW_KV_NAMESPACE_ID"
+    }
+  ],
+  "vars": {
+    "ALLOWED_COUNTRY": "FR",
+    "BAN_TTL_SECONDS": "7776000",
+    "ADMIN_PATH": "/__meshguard/admin"
+  },
+  "secrets": {
+    "required": [
+      "MESHGUARD_COOKIE_SECRET",
+      "MESHGUARD_ADMIN_SECRET"
+    ]
+  },
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "head_sampling_rate": 1
+    }
+  }
+}
