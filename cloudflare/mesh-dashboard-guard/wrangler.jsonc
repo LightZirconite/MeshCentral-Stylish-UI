@@ -12,8 +12,8 @@
   "kv_namespaces": [
     {
       "binding": "MESHGUARD_BANS",
-      "id": "REPLACE_WITH_PRODUCTION_KV_NAMESPACE_ID",
-      "preview_id": "REPLACE_WITH_PREVIEW_KV_NAMESPACE_ID"
+      "id": "5ce186ec1e334ebf87bb65d6ffa85878",
+      "preview_id": "a2ee4f0f41724d54980b5fda49714ab4"
     }
   ],
   "vars": {
