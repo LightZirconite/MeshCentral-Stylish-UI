@@ -501,6 +501,8 @@
 
 // Desktop stream badge near the remote desktop connect status
 (() => {
+    if (window.mcShowDesktopStreamBadge !== true) return;
+
     const STREAM_BADGE_ID = 'mc-stream-status-badge';
     const DESKTOP_STATUS_ID = 'deskstatus';
     const FALLBACK_STATUS_ID = 'p13bottomstatus';
@@ -640,7 +642,9 @@
     const PROCESSING_RE = /(processing|traitement|connecting|connexion|initiali[sz]ing|starting|waiting|attente|handshake)/i;
     const DISCONNECTED_RE = /(disconnected|deconnecte|déconnecté|not connected|ferme|fermé)/i;
     let observer = null;
+    let pollTimer = null;
     let waitingSince = 0;
+    let observedStatusNode = null;
 
     const getStatusNode = () => document.getElementById(DESKTOP_STATUS_ID) || document.getElementById(FALLBACK_STATUS_ID);
     const getStatusText = () => {
@@ -718,14 +722,27 @@
 
     const queueSync = () => window.requestAnimationFrame(syncOverlay);
 
-    const startObserver = () => {
-        const root = document.body || document.documentElement;
-        if (!root) return;
+    const bindStatusObserver = () => {
+        const status = getStatusNode();
+        if (status === observedStatusNode) return;
 
         if (observer) observer.disconnect();
-        observer = new MutationObserver(queueSync);
-        observer.observe(root, { childList: true, subtree: true, characterData: true, attributes: true });
-        window.setInterval(syncOverlay, 500);
+        observer = null;
+        observedStatusNode = status;
+
+        if (status) {
+            observer = new MutationObserver(queueSync);
+            observer.observe(status, { childList: true, subtree: true, characterData: true, attributes: true });
+        }
+    };
+
+    const startObserver = () => {
+        bindStatusObserver();
+        if (pollTimer) clearInterval(pollTimer);
+        pollTimer = window.setInterval(function () {
+            bindStatusObserver();
+            syncOverlay();
+        }, 1000);
         syncOverlay();
     };
 
@@ -941,7 +958,7 @@
         ensureBadge();
         patchCurrentDesktopControllers();
         if (patchTimer) clearInterval(patchTimer);
-        patchTimer = setInterval(patchCurrentDesktopControllers, 500);
+        patchTimer = setInterval(patchCurrentDesktopControllers, 1500);
     };
 
     if (document.readyState === 'loading') {
